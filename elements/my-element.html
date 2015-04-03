@@ -1,0 +1,18 @@
+<link rel="import" href="../js/libs/polymer/polymer.html">
+
+<polymer-element name="my-element">
+  <template>
+    <span>{{n}}: Hello <span style="color: {{color}}">{{name}}</span>.</span>
+    <input id="slider" type="range" value="{{n}}">
+  </template>
+  <script>
+    Polymer({
+      name: "David",
+      color: "red",
+      n: 0,
+      nChanged: function () {
+        console.log('changed!');
+      }
+    });
+  </script>
+</polymer-element>

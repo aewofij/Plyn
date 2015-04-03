@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../js/libs/polymer/polymer.html">
+<link rel="import" href="../js/libs/paper-tabs/paper-tabs.html">
+<link rel="import" href="arrow-node.html">
+<link rel="import" href="flower-picker.html">
+
+<polymer-element name="behavior-field">
+  <template>
+    <style>
+      :host {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      #field {
+        position: relative;
+        left: 0px;
+        top: 0px;
+        overflow: hidden;
+        height: 100%;
+        width: 100%;
+        min-height: 500px;
+        background-color: #555;
+      }
+
+      #canvas {
+        pointer-events: none;
+        position: relative;
+        left: 0px;
+        top: 0px;
+        z-index: 1;
+        /*width: 100%;
+        height: 100%;*/
+      }
+
+      #picker {
+        z-index: 10;
+        position: absolute;
+        display: none;
+      }
+
+      #nonCanvas {
+        position:absolute;
+        left: 0;
+        top: 0;
+        transform: scale({{state.zoom}});
+      }
+
+      .arrowNode {
+        position: absolute;
+      }
+    </style>
+
+    <div id="field" 
+      touch-action="none"
+      on-track="{{tracking}}"
+      on-up="{{tappedField}}">
+      <canvas id="canvas" class="fieldBack"></canvas>
+      <div id="nonCanvas" class="fieldBack">
+        <flower-picker id="picker" 
+          elements="{{nodeRegistry}}" 
+          valueattr="kind"
+          on-item-selected="{{didAddNode}}"></flower-picker>
+        <template repeat="{{node in controller.activeNodes}}" id="nodesContainer">
+          <arrow-node 
+            id="{{node.model.id}}"
+            class="arrowNode" 
+            node="{{node}}" 
+            xpos="{{node.view.position.x}}" 
+            ypos="{{node.view.position.y}}" 
+            isSelected="{{node.view.isSelected}}"
+            touch-action="none"
+            on-down="{{transitionPositionMode}}"
+            on-mouseup="{{transitionPositionMode}}"
+            on-node-selected="{{didSelectNode}}"
+            on-inlet-selected="{{beginPatchingInlet}}"
+            on-outlet-selected="{{beginPatchingOutlet}}">
+          </arrow-node>
+          <!-- that on-down / on-mouseup stuff is stupid and shouldn't exist -->
+        </template>
+      </div>
+    </div>
+  </template>
+  <script>
+require([ 'js/app' ], function () {
+require([ 'core/signals'
+        , 'core/behavior/behavior'
+        , 'core/behavior/node-registry'
+        , 'ui/behavior-panel-tools'
+        , 'fabric'
+        , 'underscore' ], 
+        function (Signal, Behavior, NodeRegistry, 
+                  BehaviorPanelToolController, Fabric, _) {
+  var self;
+
+  var Mode = {
+    idle: 'idle', 
+    patching: 'patching',
+    positionNode: 'positionNode',
+    addNode: 'addNode'
+  };
+
+  var kDoubleTapTime = 500;
+
+  Polymer('behavior-field', {
+    publish: {
+      dimensions: {
+        width: 0,
+        height: 0
+      }
+    },
+
+    observe: {
+      'controller.activeNodes.length': 'controllerChanged'
+    },
+
+    // ----- Properties and change watchers ----- //
+
+    controller: null,
+    controllerChanged: function () {
+      var self = this;
+
+      console.log('controllerChanged');
+
+      this.toolController = new BehaviorPanelToolController(this.controller);
+      this.async(this.updateShape);
+    },
+    updateShape: function () {
+      var self = this;
+      _.each(this.controller.activeNodes, function (node) {
+        _.each(node.view.outgoing, function (outEdge) {
+          if (outEdge['shape'] === undefined) {
+            // set shape
+            outEdge['shape'] = new Fabric.Path('M 0 0 C 0 0 0 0 0 0', 
+                                               {fill:'', stroke:'black'});
+            var positionCable = function (edgeData) {
+              var curve = self.makePatchCableCurve(edgeData);
+
+              edgeData.shape.path[0][1] = curve.startPoint.x;
+              edgeData.shape.path[0][2] = curve.startPoint.y;
+
+              edgeData.shape.path[1][1] = curve.ctrlPt1.x;
+              edgeData.shape.path[1][2] = curve.ctrlPt1.y;
+
+              edgeData.shape.path[1][3] = curve.ctrlPt2.x;
+              edgeData.shape.path[1][4] = curve.ctrlPt2.y;
+
+              edgeData.shape.path[1][5] = curve.endPoint.x;
+              edgeData.shape.path[1][6] = curve.endPoint.y;
+
+              self.fabric.renderAll();
+            }
+
+            positionCable(outEdge);
+            Object.observe(node.view.position, 
+                           function() { positionCable(outEdge) });
+            Object.observe(self.controller.getNode(outEdge.to.nodeId).view.position, 
+                           function() { positionCable(outEdge) });
+
+            self.fabric.add(outEdge.shape);
+          }
+        })
+      });
+    },
+
+    makePatchCableCurve: function (edgeData) {
+      var outlet = 
+        this.getNodeElement(edgeData.from).getOutlet();
+      var inlet = 
+        this.getNodeElement(edgeData.to.nodeId).getInlet(edgeData.to.inlet);
+
+      var offset = {
+        x: -this.getBoundingClientRect().left,
+        y: -this.getBoundingClientRect().top,
+      }
+
+      var fromRect = outlet.getBoundingClientRect();
+      var toRect = inlet.getBoundingClientRect();
+
+      var startPoint = {
+        x: offset.x + fromRect.left + fromRect.width / 2, 
+        y: offset.y + fromRect.top + fromRect.height / 2 + 10
+      };
+
+      var endPoint = {
+        x: offset.x + toRect.left + toRect.width / 2, 
+        y: offset.y + toRect.top + toRect.height / 2 - 10
+      };
+
+      return this.makeCurve(startPoint, endPoint);
+    },
+
+    makeCurve: function (startPoint, endPoint) {
+      var flowDirection = { x: 0, y: 1 };
+      var smoothness = .4;
+
+      var bend = smoothness * ((startPoint.x - endPoint.x) * flowDirection.x 
+                            + ((startPoint.y - endPoint.y) * flowDirection.y));
+
+      var ctrlPt1 = {
+        x: startPoint.x + flowDirection.x * -bend,
+        y: startPoint.y + flowDirection.y * -bend
+      };
+
+      var ctrlPt2 = {
+        x: endPoint.x + flowDirection.x * bend,
+        y: endPoint.y + flowDirection.y * bend
+      };
+
+      return {
+        startPoint: startPoint,
+        endPoint: endPoint,
+        ctrlPt1: ctrlPt1,
+        ctrlPt2: ctrlPt2
+      };
+    },
+
+    toolController: null,
+
+    nodeRegistry: NodeRegistry.all,
+
+    state: {
+      zoom: 1,
+      translateAmount: {
+        x: 0,
+        y: 0
+      },
+      startedPositioning: false, // gah events yo
+      shiftFn: false,
+      mode: Mode.idle
+    },
+
+    ready: function () {
+      this.canvas = this.$.canvas;
+      this.fabric = new Fabric.Canvas(this.$.canvas);
+      this.fabric.selection = false;
+
+      this.setupEventHandlers();
+
+      // this.state.activePatchCable = 
+      //   new Fabric.Path('M 0 0 C 0 0 0 0 0 0', {fill:'', stroke:'black'});
+      // this.state.activePatchCable.visible = false;
+    },
+
+    attached: function () {
+      this.resizeSelf();
+    },
+
+    resizeSelf: function () {
+      var rect = this.getBoundingClientRect(),
+         width = this.offsetParent.offsetWidth, 
+        height = this.offsetParent.offsetHeight;
+      this.fabric.setDimensions({ width: width, height: height });
+    },
+
+    // ----- GENERAL ----- //
+
+    getNodeElement: function (id) {
+      return this.$.nonCanvas.querySelector('#' + id);
+    },
+
+    tappedField: function (evt) {
+      if (evt.relatedTarget !== null 
+          && _.contains(evt.relatedTarget.classList, 'fieldBack')) {
+        this.controller.clearSelection();
+      }
+    },
+
+    tracking: function (evt) {
+      if (this.state.mode === Mode.idle) {
+        pan({ x: evt.ddx, y: ddy });
+      } 
+      else if (this.state.mode === Mode.positionNode) {
+        // this.toolController.movePositionNodes({x: evt.clientX, y: evt.clientY});
+      } 
+      else if (this.state.mode === Mode.patching) {
+        updateActivePatch(evt);
+      }
+    },
+
+    setupEventHandlers: function () {
+      var self = this;
+
+      window.addEventListener('up', this.endPatching.bind(this));
+      window.addEventListener('up', this.transitionPositionMode.bind(this));
+      window.addEventListener('keydown', function (evt) {
+        if (evt.which == 91) {
+          self.state.shiftFn = true;
+        }
+      });
+      window.addEventListener('keyup', function (evt) {
+        if (evt.which == 91) {
+          self.state.shiftFn = false;
+        }
+      });
+      window.addEventListener('mousemove', this.positionNode.bind(this));
+      this.setupAddNodeMenu();
+    },
+
+    // ----- IDLE ----- //
+
+    pan: function (evt) {
+      // body...
+    },
+
+    // ----- PATCHING ----- //
+
+    beginPatchingInlet: function (evt) {
+      if (this.state.mode === Mode.idle || this.state.mode === Mode.positionNode) {
+        this.toolController.beginPatching({ 
+          to: { 
+            node: evt.detail.node.id, 
+            inlet: parseInt(evt.detail.sender.getAttribute('index'))
+          }
+        });
+
+        this.state.mode = Mode.patching;
+      }
+    },
+
+    beginPatchingOutlet: function (evt) {
+      if (this.state.mode === Mode.idle) {
+        this.toolController.beginPatching({ 
+          from: evt.detail.node.id,
+        });
+
+        this.state.mode = Mode.patching;
+      }
+    },
+
+    endPatching: function (evt) {
+      if (this.state.mode === Mode.patching) {
+        var target = evt.relatedTarget.getAttribute('node-id');
+        var inlet = evt.relatedTarget.getAttribute('index');
+
+        this.toolController.endPatching(inlet == null ? { from: target } 
+                                                 : { to: { node: target
+                                                         , inlet: inlet } });
+
+        this.state.mode = Mode.idle;
+      }
+    },
+
+    updateActivePatch: function (evt) {
+      // TODO
+    },
+
+    // ----- ADD NODE ----- //
+
+    // Event handler for `item-selected` event from `flower-picker` element.
+    didAddNode: function (evt) {
+      var kind = evt.detail.item.kind;
+      var position = evt.detail.position;
+      var createdNode = 
+        this.toolController.addNode(NodeRegistry.getNode(kind), position);
+
+      // set selection to new node
+      this.controller.clearSelection();
+      this.controller.addNodesToSelection([createdNode]);
+    },
+
+    setupAddNodeMenu: function () {
+      var self = this;
+
+      var waitingForDblTap = false;
+      var didNotDblTap = function () {
+        waitingForDblTap = false;
+      }
+      var doubleTapTimeoutId = 0;
+      self.$.field.addEventListener('down', function (evt) {
+        var clientBounds = evt.path[0].getBoundingClientRect();
+
+        if (waitingForDblTap) {
+          didDblTap({ x: evt.x - clientBounds.left
+                    , y: evt.y - clientBounds.top });
+          waitingForDblTap = false;
+        } else {
+          waitingForDblTap = true;
+          doubleTapTimeoutId = window.setTimeout(didNotDblTap, kDoubleTapTime);
+        }
+      });
+
+      function didDblTap (at) {
+        self.state.mode = Mode.addNode;
+
+        self.$.picker.style.display = 'block';
+        self.$.picker.style.left = at.x + "px";
+        self.$.picker.style.top  = at.y + "px";
+      }
+
+      self.$.field.addEventListener('up', function (evt) {
+        if (self.state.mode === Mode.addNode) {
+          self.state.mode = Mode.idle;
+        }
+        
+        self.$.picker.style.display = 'none';
+      });
+    },
+
+    // ----- POSITION NODE ----- //
+
+    transitionPositionMode: function (evt) {
+      if (evt.type == 'down') {
+        this.state.startedPositioning = true;
+      } else if (evt.type == 'mouseup') {
+        this.state.startedPositioning = false;
+      }
+    },
+
+    positionNode: function (evt) {
+      if (this.state.startedPositioning) {
+        // console.log('positionNode', evt);
+        this.toolController.movePositionNodes({x: evt.clientX, y: evt.clientY});
+      }
+    },
+
+    // TODO: refine this behavior
+    didSelectNode: function (evt) {
+      var selectedNode = evt.detail.sender.node;
+
+      if (evt.detail.isDown) {
+        // if the selected node is in the selection group, 
+        if (selectedNode.view.isSelected) {
+          if (!this.state.shiftFn) {
+            // TODO: maybe edit here?
+            this.controller.clearSelection();
+            this.controller.addNodesToSelection([selectedNode]);
+          }
+        } else {
+          // otherwise, set selection group to this node
+          // if shift is not down, clear the selection
+          if (!this.state.shiftFn) {
+            this.controller.clearSelection();
+          }
+          this.controller.addNodesToSelection([selectedNode]);
+        }
+
+        // begin positioning 
+        this.toolController.beginPositionNodes(evt.detail.position);
+        this.state.mode = Mode.positionNode;
+      } else {
+        // ending positioning
+        this.toolController.endPositionNodes();
+        this.state.mode = Mode.idle;
+      }
+    },
+
+    // ----- VIEWPORT ----- //
+
+    pan: function (delta) {
+      this.state.translateAmount.x += delta.x;
+      this.state.translateAmount.y += delta.y;
+    },
+
+
+    // ----- HELPERS ----- //
+
+    makeCurve: function (startPoint, endPoint) {
+      var flowDirection = { x: 0, y: 1 };
+      var smoothness = .4;
+
+      var bend = smoothness * ((startPoint.x - endPoint.x) * flowDirection.x 
+                            + ((startPoint.y - endPoint.y) * flowDirection.y));
+
+      var ctrlPt1 = {
+        x: startPoint.x + flowDirection.x * -bend,
+        y: startPoint.y + flowDirection.y * -bend
+      };
+
+      var ctrlPt2 = {
+        x: endPoint.x + flowDirection.x * bend,
+        y: endPoint.y + flowDirection.y * bend
+      };
+
+      return {
+        startPoint: startPoint,
+        endPoint: endPoint,
+        ctrlPt1: ctrlPt1,
+        ctrlPt2: ctrlPt2
+      };
+    },
+
+  });
+});
+});
+  </script>
+</polymer-element>

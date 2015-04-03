@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../js/libs/polymer/polymer.html">
+<link rel="import" href="../js/libs/paper-tabs/paper-tabs.html">
+<link rel="import" href="arrow-node.html">
+<link rel="import" href="flower-picker.html">
+
+<polymer-element name="behavior-field">
+  <template>
+    <style>
+      :host {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      #field {
+        position: relative;
+        left: 0px;
+        top: 0px;
+        overflow: hidden;
+        height: 100%;
+        width: 100%;
+        min-height: 500px;
+        background-color: #555;
+      }
+
+      #canvas {
+        pointer-events: none;
+        position: relative;
+        left: 0px;
+        top: 0px;
+        z-index: 1;
+        /*width: 100%;
+        height: 100%;*/
+      }
+
+      #picker {
+        z-index: 10;
+        position: absolute;
+        display: none;
+      }
+
+      #nonCanvas {
+        position:absolute;
+        left: 0;
+        top: 0;
+        transform: scale({{state.zoom}});
+      }
+
+      .arrowNode {
+        position: absolute;
+      }
+    </style>
+
+    <div id="field" 
+      touch-action="none"
+      on-track="{{tracking}}">
+      <canvas id="canvas"></canvas>
+      <div id="nonCanvas">
+        <flower-picker id="picker" elements="{{nodeRegistry}}" valueattr="kind"></flower-picker>
+        <template repeat="{{node in activeBehaviorView.nodes}}" id="nodesContainer">
+          <arrow-node 
+            class="arrowNode" 
+            id="{{node.id}}"
+            xpos="{{node.position.x}}" 
+            ypos="{{node.position.y}}" 
+            node="{{node}}" 
+            touch-action="none"
+            on-node-selected="{{beginPositioning}}"
+            on-inlet-selected="{{beginPatchingInlet}}"
+            on-outlet-selected="{{beginPatchingOutlet}}">
+          </arrow-node>
+        </template>
+      </div>
+    </div>
+  </template>
+  <script>
+    require([ 'js/app' ], function () {
+      require([ 'core/signals'
+              , 'core/behavior/behavior'
+              , 'core/behavior/node-registry'
+              , 'fabric'
+              , 'underscore' ], 
+              function (Signal, Behavior, NodeRegistry, Fabric, _) {
+        var self;
+
+        var Mode = {
+          idle: 'idle', 
+          patching: 'patching',
+          addNode: 'addNode'
+        };
+
+        var kDoubleTapTime = 500;
+
+        Polymer('behavior-field', {
+          publish: {
+            behaviors: [],
+            activeBehavior: null,
+            dimensions: {
+              width: 0,
+              height: 0
+            }
+          },
+
+          observe: {
+            'behaviors': 'behaviorsUpdated',
+            'activeBehaviorView.nodes': 'modifiedNodes'
+          },
+
+          activeBehaviorView: {
+            // nodes : [ArrowNode]
+            nodes: [],
+            // edges : [{ from: ArrowNode, to: { node: ArrowNode, inlet: number }, shape: <fabric path>}]
+            edges: []
+          },
+
+          // ----- Properties and change watchers ----- //
+
+          state: {
+            zoom: 1,
+            mode: Mode.idle
+          },
+
+          activeBehaviorChanged: function (old, beh) {
+            var sparse = beh ? Behavior.sparseView(beh) : { nodes: {}, edges: {} };
+
+            var nodeIds = _.keys(sparse.nodes);
+            var activeNodeIds = _.map(this.activeBehaviorView.nodes, _.property('id'));
+
+            var adding = { nodes: _.reject(nodeIds, _.partial(_.contains, activeNodeIds))
+                         , edges: _.map(_.pairs(_.omit(sparse.edges, _.map(this.activeBehaviorView.edges, _.property('id')))), function (keyval) {
+                             var result = keyval[1];
+                             result['id'] = keyval[0];
+                             return result;
+                           })
+                         };
+            var removing = { nodes: _.reject(activeNodeIds, _.partial(_.contains, nodeIds))
+                           , edges: _.map(_.omit(this.activeBehaviorView.edges, _.keys(sparse.edges)), function (fullEdge) {
+                                return {
+                                  from: fullEdge.from.id,
+                                  to: { node: fullEdge.to.node.id, inlet: fullEdge.to.inlet }
+                                };
+                             })
+                           };
+
+            this.viewModified(null, adding, removing);
+          },
+
+          modifiedNodes: function (oldv, newv) {
+            var self = this;
+
+            // now that we have the new node elements, update edges
+            _.each(self.activeBehaviorView.edges, function (edge) {
+              if (edge.shape === undefined) {
+                edge.shape = self.createPatchCablePath(edge);
+                var updateCable = function () {
+                  var curve = self.patchCableCurve(edge);
+                  edge.shape.setCurve(curve);
+                  // console.log(edge.shape.shape.path[0],edge.shape.shape.path[1]);
+                  self.fabric.renderAll();
+                }
+
+                Object.observe(edge.from.position, updateCable);
+                Object.observe(edge.to.node.position, updateCable);
+              }
+            });
+          },
+
+          behaviorsUpdated: function (oldV, newV) {
+            // this.updateView(this.activeBehavior);
+          },
+
+          nodes: [],
+          // nodesChanged: function (oldValue, newValue) {
+          //   // console.log('new nodes:', newValue);
+          // },
+
+          nodeRegistry: NodeRegistry.all,
+
+          translateAmount: {
+            x: 0,
+            y: 0
+          },
+
+          // ----- Lifecycle ----- //
+
+          ready: function () {
+            this.canvas = this.$.canvas;
+            this.fabric = new Fabric.Canvas(this.$.canvas);
+            this.fabric.selection = false;
+            this.setupEvents();
+            // window.requestAnimationFrame(this.draw.bind(this));
+          },
+
+          attached: function () {
+            this.resizeSelf();
+          },
+
+          // ----- Drawing ----- //          
+
+          // width: 500,
+          // height: 500,
+
+          // draw: function (time) {
+          //   var self = this;
+          //   var ctx = this.canvas.getContext('2d');
+
+          //   ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+          //   // this.edges.forEach(this.drawEdge.bind(this));
+          //   // this.drawGrid(this.canvas);
+
+          //   this.drawActivePatchCable();
+
+          //   // ctx.translate(-this.translateAmount.x, -this.translateAmount.y);
+
+          //   window.requestAnimationFrame(this.draw.bind(this));
+          // },
+
+          // drawActivePatchCable: function () {
+          //   if (this.state.patching) {
+          //     var ctx = this.canvas.getContext('2d');
+
+          //     var isGoingWithFlow = this.state.patching.to == null;
+          //     var attachedNodeElm = isGoingWithFlow
+          //                           ? this.state.patching.from 
+          //                           : this.state.patching.to.node;
+          //     var attachedLet = isGoingWithFlow
+          //                       ? attachedNodeElm.getOutlet()
+          //                       : attachedNodeElm.getInlet(this.state.patching.to.inlet);
+          //     var attachedModel = this.activeBehavior.getNode(attachedNodeElm.id);
+          //     // var offset = $(attachedNodeElm).offset();
+          //     var width  = $(attachedNodeElm).width(); 
+          //     var height = $(attachedNodeElm).height(); 
+
+          //     var type = isGoingWithFlow
+          //                ? attachedModel.signal.type
+          //                : attachedModel.currentTypes(attachedModel.arrow.inputTypes[this.state.patching.to.inlet]);
+
+          //     var letBox = attachedLet.getBoundingClientRect();
+
+          //     var margin = 10;
+          //     var center = { 
+          //       x: letBox.left + letBox.width / 2
+          //          - this.getBoundingClientRect().left, 
+          //       y: letBox.top + letBox.height / 2 + (isGoingWithFlow ? margin : -margin)
+          //          - this.getBoundingClientRect().top
+          //     };
+
+
+          //     // var center = { 
+          //     //   x: attachedNodeElm.xpos + $(attachedLet).offset().left + $(attachedLet).width() / 2,
+          //     //   y: attachedNodeElm.ypos + $(attachedLet).offset().top
+          //     // };
+
+          //     var offsetMouse = {
+          //       x: this.state.mouse.position.x - this.getBoundingClientRect().left,
+          //       y: this.state.mouse.position.y - this.getBoundingClientRect().top
+          //     }
+
+          //     var from = isGoingWithFlow
+          //                ? center
+          //                : offsetMouse;
+          //     var to = isGoingWithFlow
+          //              ? offsetMouse
+          //              : center;
+
+          //     this.drawPatchCable(from, to, type);
+          //   }
+          // },
+
+          // drawEdge: function (edge) {
+          //   var self = this;
+          //   var ctx = this.canvas.getContext('2d');
+
+          //   var offset = {
+          //     x: -self.getBoundingClientRect().left,
+          //     y: -self.getBoundingClientRect().top,
+          //   }
+
+          //   var fromNode = self.$.field.querySelector('#' + edge.from.nodeId);
+          //   var toNode = self.$.field.querySelector('#' + edge.to.nodeId);
+
+          //   if (fromNode == undefined || toNode == undefined) {
+          //     // console.log('unable to find node', (fromNode == undefined ? edge.from.nodeId : edge.to.nodeId));
+          //     return;
+          //   } else {
+          //     var fromNodeElm = fromNode.getOutlet();
+          //     var toNodeElm = toNode.getInlet(edge.to.inletIndex);
+
+          //     if (fromNodeElm !== null && toNodeElm !== null) {
+          //       var fromRect = fromNodeElm.getBoundingClientRect();
+          //       var toRect = toNode.getInlet(edge.to.inletIndex).getBoundingClientRect();
+
+          //       var startPoint = {
+          //         x: offset.x + fromRect.left + fromRect.width / 2, 
+          //         y: offset.y + fromRect.top + fromRect.height / 2 + 10
+          //       };
+
+          //       var endPoint = {
+          //         x: offset.x + toRect.left + toRect.width / 2, 
+          //         y: offset.y + toRect.top + toRect.height / 2 - 10
+          //       };
+
+          //       this.drawPatchCable(startPoint, endPoint);
+          //     }
+          //   }
+          // },
+
+          // drawGuides: function (canvas) {
+          //   var ctx = canvas.getContext('2d');
+
+          //   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          //   var ss = ctx.strokeStyle;
+          //   ctx.strokeStyle = 'grey';
+
+          //   var nodeElms = this.$.field.querySelectorAll('.arrowNode');
+          //   for (var i = nodeElms.length - 1; i >= 0; i--) {
+              
+          //     var rect = nodeElms[i].getBoundingClientRect();
+          //     ctx.beginPath();
+          //     ctx.ellipse(nodeElms[i].xpos + rect.width / 2,
+          //                 nodeElms[i].ypos + rect.height / 2,
+          //                 100, 100, 0, 0, 2*Math.PI);
+          //     ctx.stroke();
+          //   };
+
+          //   // for (var i = 0; i < 100; i++) {
+          //   //   ctx.beginPath();
+          //   //   ctx.ellipse(0, 0, i * 5, i * 5, 0, 0, 2 * Math.PI);
+          //   //   ctx.stroke();
+          //   // }
+
+          //   ctx.strokeStyle = ss;
+          // },
+
+          // drawGrid: function (canvas) {
+          //   var ctx = canvas.getContext('2d');
+
+          //   var oldLineWidth = ctx.lineWidth;
+          //   ctx.lineWidth = 1;
+
+          //   var gridDim = {
+          //     width: 10,
+          //     height: 10
+          //   };
+
+          //   for (var i = 0; i < canvas.width / gridDim.width; i++) {
+          //     ctx.beginPath();
+          //     ctx.moveTo(i * gridDim.width, 0);
+          //     ctx.lineTo(i * gridDim.width, canvas.height);
+          //     ctx.stroke();
+          //   };
+
+          //   for (var i = 0; i < canvas.height / gridDim.height; i++) {
+          //     ctx.beginPath();
+          //     ctx.moveTo(0, i * gridDim.height);
+          //     ctx.lineTo(canvas.width, i * gridDim.height);
+          //     ctx.stroke();
+          //   };
+
+          //   ctx.lineWidth = oldLineWidth;
+          // },
+
+          // drawPatchCable: function (from, to) {
+          //   var ctx = this.canvas.getContext('2d');
+
+          //   var oldCtxSettings = {
+          //     strokeStyle: ctx.strokeStyle,
+          //     lineCap: ctx.lineCap,
+          //     lineWidth: ctx.lineWidth
+          //   };
+
+          //   ctx.strokeStyle = '#333';
+          //   ctx.lineCap = 'round';
+          //   ctx.lineWidth = 3;
+          //   ctx.beginPath();
+
+          //   ctx.beginPath();
+
+          //   var curve = this.makeCurve(from, to);
+          //   ctx.moveTo(curve.startPoint.x, curve.startPoint.y);
+          //   ctx.bezierCurveTo(curve.ctrlPt1.x, curve.ctrlPt1.y, 
+          //                     curve.ctrlPt2.x, curve.ctrlPt2.y, 
+          //                     curve.endPoint.x, curve.endPoint.y);
+
+          //   ctx.stroke();
+
+          //   ctx.strokeStyle = oldCtxSettings.strokeStyle;
+          //   ctx.lineCap = oldCtxSettings.lineCap;
+          //   ctx.lineWidth = oldCtxSettings.lineWidth;
+          // },
+
+
+          // ----- User interaction ----- //
+
+          addNewNode: function (kind, pos) {
+            this.fire('node-added', {
+              kind: kind,
+              position: pos
+            });
+          },
+          
+
+          // ----- Event handlers ----- //
+
+          
+          tracking: function (evt) {
+            var computedStyle = window.getComputedStyle(this.$.nonCanvas, null);
+            this.translateAmount.x += evt.ddx;
+            this.translateAmount.y += evt.ddy;
+            this.$.nonCanvas.style.left = (parseInt(computedStyle.left) + evt.ddx) + 'px';
+            this.$.nonCanvas.style.top = (parseInt(computedStyle.top) + evt.ddy) + 'px'; 
+          },
+
+          beginPositioning: function (evt) {
+            this.positioning = evt.detail.isSelected ? evt.detail.sender : undefined;
+            evt.detail.sender.isPositioning = evt.detail.sender.isSelected;
+            evt.detail.sender.startPoint = { 
+              x: evt.detail.mouse.clientX, 
+              y: evt.detail.mouse.clientY 
+            };
+          },
+
+          beginPatchingInlet: function (evt) {
+            if (this.state.mode === Mode.idle) {
+              this.state['patching'] = {};
+              this.state.patching = {
+                from: null,
+                to: {
+                  node: evt.detail.node,
+                  inlet: parseInt(evt.detail.sender.getAttribute('index'))
+                }
+              };
+
+              this.state.mode = Mode.patching;
+            }
+          },
+
+          beginPatchingOutlet: function (evt) {
+            console.log('outlet-selected', evt.detail);
+            if (this.state.mode === Mode.idle) {
+              this.state['patching'] = {};
+              this.state.patching = {
+                from: evt.detail.node,
+                to: null
+              };
+
+              this.state.mode = Mode.patching;
+            }
+
+          },
+
+          endPatching: function (evt) {
+            if (this.state.mode === Mode.patching) {
+              if (this.state.patching) {
+                var target = evt.relatedTarget.getAttribute('node-id');
+                if (target !== null) {
+                  if (this.state.patching.from != null) {
+                    var fromNode = this.activeBehavior.getNode(this.state.patching.from.id);
+                    var toNode = this.activeBehavior.getNode(target);
+                    var toInlet = parseInt(evt.relatedTarget.getAttribute('index'));
+
+                    this.activeBehavior.connect(fromNode, { node: toNode, inlet: toInlet });
+                  } else {
+                    var fromNode = this.activeBehavior.getNode(target);
+                    var toNode = this.activeBehavior.getNode(this.state.patching.to.node.id);
+                    var toInlet = this.state.patching.to.inlet;
+
+                    this.activeBehavior.connect(fromNode, { node: toNode, inlet: toInlet });
+                  }
+
+              }
+              this.state.patching = null;
+              this.updateView();
+            }
+
+            this.state.mode = Mode.idle;
+            }
+          },
+
+          pointerDownEvent: function (evt) {
+            // console.log('pointerDownEvent', evt);
+          },
+
+          positionNode: function (toX, toY) {
+            if (this.positioning !== undefined) {
+              this.positioning.xpos = this.positioning.xpos + (toX - this.positioning.startPoint.x);
+              this.positioning.ypos = this.positioning.ypos + (toY - this.positioning.startPoint.y);
+
+              this.positioning.startPoint = { x: toX, y: toY };
+            }
+          },
+
+          resizeSelf: function () {
+            var rect = this.getBoundingClientRect(),
+               width = this.offsetParent.offsetWidth, 
+              height = this.offsetParent.offsetHeight;
+            // this.renderer.resize(width, height);
+            this.$.canvas.width = width;
+            this.$.canvas.height = height;
+            this.$.canvas.style.width = width + "px";
+            this.$.canvas.style.height = height + "px";
+            this.fabric.setDimensions({ width: width, height: height });
+          },
+
+
+          // ----- Setup methods ----- //
+
+          setupEvents: function () {
+            var self = this;
+
+            window.addEventListener('mousewheel', function (evt) {
+              self.state.zoom += (evt.deltaY / 200.);
+              // self.$.field.style.transform = 'scale(' + self.state.zoom + ');';
+              // console.log(self.$.field.style.transform);
+            });
+
+            window.addEventListener('mousemove', function (evt) {
+              var rect = self.$.field.getBoundingClientRect();
+              // ??
+              // self.positionNode(evt.screenX / this.state.zoom, 
+              //                   evt.screenY / this.state.zoom);
+              self.positionNode((evt.clientX - rect.left) / self.state.zoom + rect.left, 
+                                (evt.clientY - rect.top)  / self.state.zoom + rect.top);
+
+              // console.log(this.state.);
+              self.state['mouse'] = {
+                position: {
+                  x: evt.clientX / self.state.zoom,
+                  y: evt.clientY / self.state.zoom,
+                }
+              };
+            });
+
+            window.addEventListener('up', this.endPatching.bind(this));
+
+            window.addEventListener('resize', this.resizeSelf.bind(this));
+
+            self.$.field.addEventListener('touchmove', function (evt) {
+              self.positionNode(evt.touches[0].clientX, evt.touches[0].clientY);
+            });
+
+
+            var waitingForDblTap = false;
+            // var inNewNodeMode = false;
+            var didNotDblTap = function () {
+              waitingForDblTap = false;
+            }
+            var didDblTap = function (at) {
+              self.state.mode = Mode.addNode;
+              // self.addNewNode(at);
+              // inNewNodeMode = true;
+              self.$.picker.style.display = 'block';
+              self.$.picker.style.left = at.x + "px";
+              self.$.picker.style.top  = at.y + "px";
+            }
+            var doubleTapTimeoutId = 0;
+            self.$.field.addEventListener('down', function (evt) {
+              var clientBounds = evt.path[0].getBoundingClientRect();
+
+              if (waitingForDblTap) {
+                didDblTap({ x: evt.x - clientBounds.left
+                          , y: evt.y - clientBounds.top });
+                waitingForDblTap = false;
+              } else {
+                waitingForDblTap = true;
+                doubleTapTimeoutId = window.setTimeout(didNotDblTap, kDoubleTapTime);
+              }
+            });
+            self.$.field.addEventListener('up', function (evt) {
+              if (self.state.mode === Mode.addNode) {
+                self.state.mode = Mode.idle;
+              }
+              
+              self.$.picker.style.display = 'none';
+            });
+
+            self.$.picker.addEventListener('item-selected', function (evt) {
+              self.addNewNode(evt.detail.item.kind, evt.detail.position);
+            });
+          },
+
+
+          // ----- Helper methods ----- //
+
+          /* Incrementally updates what is being displayed.
+           *
+           * Each argument takes the form:
+           * {
+           *   nodes: [<node id>],
+           *   edges: [{ id: <edge id>, from: <node id>, to: { node: <node id>, inlet: <inlet index> } }]
+           * }
+           */
+          viewModified: function (modified, added, removed) {
+            var self = this;
+
+            if (modified !== null) {
+              // TODO
+            }
+
+            if (added !== null && added !== undefined) {
+              this.activeBehaviorView.nodes = 
+                this.activeBehaviorView.nodes.concat(_.map(added.nodes, 
+                                                           function (id) {
+                                                             return self.formatArrowNode(self.activeBehavior.getNode(id));
+                                                           },
+                                                           this.activeBehavior));
+
+              this.activeBehaviorView.edges = 
+                this.activeBehaviorView.edges.concat(_.map(added.edges, function (edge) {
+                  return {
+                    id: edge.id,
+                    from: self.activeBehavior.getNode(edge.from),
+                    to: {
+                      node: self.activeBehavior.getNode(edge.to.node),
+                      inlet: edge.to.inlet
+                    }
+                  };
+                }, this));
+            }
+
+            if (removed !== null && removed !== undefined) {
+              this.activeBehavior.nodes = _.reject(this.activeBehaviorView.nodes, 
+                                                   function (elm) { return _.contains(removed.nodes, elm.id) });
+
+              this.activeBehavior.edges = _.reject(this.activeBehaviorView.edges, 
+                                                   function (elm) { return _.contains(_.map(removed.edges, _.property('id')), elm.id) });              
+
+              _.each(_.filter(this.activeBehaviorView.edges, 
+                               function (elm) { return _.contains(_.map(removed.edges, _.property('id')), elm.id) }), function (elm) {
+                elm.remove();
+              });
+            }
+          },
+
+          /* 
+           * edge : { from: <node id>, to: { node: <node id>, inlet: <inlet index> } }
+           */
+          createPatchCablePath: function (edge) { 
+            var curve = this.patchCableCurve(edge);            
+
+            var line = new Fabric.Path('M ' + curve.startPoint.x + ',' + curve.startPoint.y +
+                                       ' C ' + curve.ctrlPt1.x + ',' + curve.ctrlPt1.y + 
+                                       ' ' + curve.ctrlPt2.x + ',' + curve.ctrlPt2.y +
+                                       ' ' + curve.endPoint.x + ',' + curve.endPoint.y, {fill:'', stroke:'black'});
+            line.perPixelTargetFind = true;
+            line.targetFindTolerance = 4;
+            this.fabric.add(line);
+
+            return {
+              setCurve: function (curve) {
+                line.path[0][1] = curve.startPoint.x;
+                line.path[0][2] = curve.startPoint.y;
+                line.path[1][1] = curve.ctrlPt1.x;
+                line.path[1][2] = curve.ctrlPt1.y;
+                line.path[1][3] = curve.ctrlPt2.x;
+                line.path[1][4] = curve.ctrlPt2.y;
+                line.path[1][5] = curve.endPoint.x;
+                line.path[1][6] = curve.endPoint.y;
+              },
+              remove: function () {
+                this.fabric.remove(line);
+              }
+            };
+          },
+
+          patchCableCurve: function (edge) {
+            var self = this;
+
+            var outlet = this.$.field.querySelector('#' + edge.from.id).getOutlet();
+            var inlet  = this.$.field.querySelector('#' + edge.to.node.id).getInlet(edge.to.inlet);
+
+            var offset = {
+              x: -self.getBoundingClientRect().left,
+              y: -self.getBoundingClientRect().top,
+            }
+
+            var fromRect = outlet.getBoundingClientRect();
+            var toRect = inlet.getBoundingClientRect();
+
+            var startPoint = {
+              x: offset.x + fromRect.left + fromRect.width / 2, 
+              y: offset.y + fromRect.top + fromRect.height / 2 + 10
+            };
+
+            var endPoint = {
+              x: offset.x + toRect.left + toRect.width / 2, 
+              y: offset.y + toRect.top + toRect.height / 2 - 10
+            };
+
+            return this.makeCurve(startPoint, endPoint);
+          },
+
+          updateView: function () {
+            var self = this;
+            var beh = self.activeBehavior;
+
+            if (beh !== undefined && beh !== null) {
+              this.nodes = Object.keys(beh.nodes).map(function (nodeKey) {
+                var node = beh.nodes[nodeKey];
+                if (node.arrow !== null && node.arrow !== undefined) {
+                  return {
+                    name: node.arrow.name,
+                    id: node.id,
+                    inlets: node.arrow.inputTypes.map(node.currentTypes)
+                                                 .map(self.displayType, self)
+                                                 .map(function (tyStr) {
+                      return {
+                        type: tyStr
+                      };
+                    }),
+                    outlet: { type: self.displayType(node.currentTypes(node.arrow.returnType)) },
+                    position: node.position,
+                    subscribe: function (callback) {
+                      if (node.signal !== null) {
+                        return Signal.subscribe(node.signal, callback);
+                      } else {
+                        return function () { return };
+                      }
+                    }
+                  };
+                } else {
+                  return {
+                    name: 'Input signal',
+                    id: node.id,
+                    inlets: [],
+                    outlet: { type: self.displayType(node.currentTypes(node.arrow.returnType)) },
+                    position: node.position,
+                    subscribe: function (callback) {
+                      return Signal.subscribe(node.signal, callback);
+                    }
+                  }
+                }
+              });
+
+              this.edges = Object.keys(beh.nodes).reduce(function (acc, nodeKey) {
+                var node = beh.nodes[nodeKey];
+
+                return acc.concat(Object.keys(node.outlet).map(function (key) {
+                  var elm = node.outlet[key];
+                  return {
+                    from: {
+                      nodeId: node.id
+                    },
+                    to: {
+                      nodeId: elm.nodeId,
+                      inletIndex: elm.inlet
+                    }
+                  };
+                }));
+              }, []);
+            }
+          },
+
+          displayType: function (ty) {
+            var self = this;
+            if (ty.category === 'Primitive') {
+              return ty.type;
+            } else if (ty.category === 'Union') {
+              return ty.types.map(self.displayType, self).join(' | ');
+            } else if (ty.category === 'Variable') {
+              return ty.id;
+            } else if (ty.category === 'Record') {
+              return ty.fields.map(function (elm) {
+                return elm.id + " : " + self.displayType(elm.type);
+              }, self).join(', ');
+            }
+          },
+
+          makeCurve: function (startPoint, endPoint) {
+            var flowDirection = { x: 0, y: 1 };
+            var smoothness = .4;
+
+            var bend = smoothness * ((startPoint.x - endPoint.x) * flowDirection.x 
+                                  + ((startPoint.y - endPoint.y) * flowDirection.y));
+
+            var ctrlPt1 = {
+              x: startPoint.x + flowDirection.x * -bend,
+              y: startPoint.y + flowDirection.y * -bend
+            };
+
+            var ctrlPt2 = {
+              x: endPoint.x + flowDirection.x * bend,
+              y: endPoint.y + flowDirection.y * bend
+            };
+
+            return {
+              startPoint: startPoint,
+              endPoint: endPoint,
+              ctrlPt1: ctrlPt1,
+              ctrlPt2: ctrlPt2
+            };
+          },
+
+          formatArrowNode: function (node) {
+            if (node.arrow !== null && node.arrow !== undefined) {
+              return {
+                name: node.arrow.name,
+                id: node.id,
+                inlets: node.arrow.inputTypes.map(node.currentTypes, node)
+                                             .map(this.displayType, this)
+                                             .map(function (tyStr) {
+                  return {
+                    type: tyStr
+                  };
+                }),
+                outlet: { type: this.displayType(node.currentTypes(node.arrow.returnType)) },
+                position: node.position,
+                subscribe: function (callback) {
+                  if (node.signal !== null) {
+                    return Signal.subscribe(node.signal, callback);
+                  } else {
+                    return function () { return };
+                  }
+                }
+              };
+            } else {
+              return {
+                name: 'Input signal',
+                id: node.id,
+                inlets: [],
+                outlet: { type: this.displayType(node.currentTypes(node.arrow.returnType)) },
+                position: node.position,
+                subscribe: function (callback) {
+                  return Signal.subscribe(node.signal, callback);
+                }
+              }
+            }
+          }
+        });
+      });
+    });
+  </script>
+</polymer-element>

@@ -1,0 +1,107 @@
+<link rel="import" href="../js/libs/polymer/polymer.html">
+<link rel="import" href="../js/libs/core-list/core-list.html">
+<link rel="import" href="../js/libs/core-item/core-item.html">
+<link rel="import" href="../js/libs/core-collapse/core-collapse.html">
+<link rel="import" href="../js/libs/core-selector/core-selector.html">
+<link rel="import" href="../js/libs/core-menu/core-menu.html">
+<link rel="import" href="../js/libs/core-menu/core-submenu.html">
+<link rel="import" href="../js/libs/core-icons/core-icons.html">
+<link rel="import" href="../js/libs/core-icon-button/core-icon-button.html">
+
+<polymer-element name="hierarchy-list">
+  <template>
+    <style>
+    * {
+      font-family: 'PT Sans', sans-serif;
+    }
+
+      core-submenu::shadow #submenu {
+        margin-left: 45px;
+      }
+
+      .icon {
+        margin: 0 10px 0 2px;
+      }
+
+      core-item {
+        min-height: 0;
+      }
+
+      .componentLabel {
+        font-family: ;
+      }
+    </style>
+    <core-menu id="objectList" selected="-1" 
+      on-core-select="{{didSelectObject}}" multi="false">
+      <template repeat="{{obj in data}}">
+        <core-submenu icon="expand-more" label="{{obj.name}}">
+          <template repeat="{{component in obj.components}}">
+            <core-item class="componentLabel" label="{{component.componentType}}"></core-item>
+          </template>
+        </core-submenu>
+      </template>
+    </core-menu>
+
+    <core-icon-button icon="star" on-tap="{{didButtonPress}}"></core-icon-button>
+    
+  </template>
+  <script> 
+    Polymer('hierarchy-list', {
+      ready: function () {
+        var mkObj = function (name, components) {
+          var strToComponent = function (compStr) {
+            if (compStr === 't') {
+              return { componentType: 'Transform' }
+            } else if (compStr === 'g') {
+              return { componentType: 'Geometry' }
+            } else if (compStr === 'c') {
+              return { componentType: 'Collider' }
+            } else {
+              return { componentType: 'New component' }
+            }
+          } 
+
+          return {
+            name: name,
+            components: components.map(strToComponent),
+            selected: false
+          }
+        }
+
+        this.data = [ mkObj('Cursor', ['t','g','c'])
+                    , mkObj('Background', ['t','g'])
+                    , mkObj('Trigger box', ['t','c'])
+                    ];
+      },
+
+      selectedDelay: -1,
+
+      didSelectObject: function (evt, dtl, sndr) {
+        // set difference of sndr.selectedItem & this.selectedDelay
+        // -> 
+
+        if (this.selectedDelay === -1) {
+          // one added selection from void selection
+          // nothing to re-toggle
+        } else {
+          if (sndr.selectedItem === this.selectedDelay) {
+            // same value, do nothing
+          } else {
+            this.selectedDelay.toggle();
+          }
+        }
+
+        console.log(sndr.selectedItem);
+        this.selectedDelay = sndr.selectedItem;
+      },
+
+      i: 0,
+
+      didButtonPress: function (evt, dtl, sndr) {
+        this.i = (this.i + 1) % 3;
+        // this.$.objectList.selected.push(this.i);
+        this.$.objectList.items[this.i].toggle();
+      }
+    });
+  </script>
+</polymer-element>

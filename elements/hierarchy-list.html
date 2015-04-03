@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../js/libs/polymer/polymer.html">
+<link rel="import" href="../js/libs/core-collapse/core-collapse.html">
+<link rel="import" href="../js/libs/core-icons/core-icons.html">
+<link rel="import" href="../js/libs/core-icon-button/core-icon-button.html">
+
+<polymer-element name="hierarchy-list">
+  <template>
+    <style>
+      :host {
+        display: block;
+        width: 100%;
+      }
+
+      .objEntry {
+        padding-left: 20px;
+      }
+
+      .compEntry {
+        padding-left: 40px;
+      }
+
+      .propertyEntry {
+        padding-left: 60px;
+      }
+
+      .objEntry, .compEntry, .propertyEntry {
+        cursor: default;
+        height: 35px;
+      }
+
+      .compEntry {
+        background-color: #ddd;
+      }
+
+      .propertyEntry {
+        background-color: #bbb;
+      }
+    </style>
+    
+    <template repeat="{{obj in objects}}">
+      <div class="objEntry" on-tap="{{toggleObjectCollapse}}" 
+        horizontal layout center>{{obj.name}}</div>
+      <core-collapse>
+        <template repeat="{{component in obj.components}}">
+          <div class="compEntry" on-tap="{{toggleComponentCollapse}}" horizontal layout center>
+            <span flex>{{component.componentType}}</span>
+          </div>
+          <core-collapse>
+            <template repeat="{{property in component.signals}}">
+              <div class="propertyEntry" horizontal layout center>
+                <span flex>{{property.name}}</span>
+                <core-icon-button class="inspectButton" icon="visibility"></core-icon-button>
+              </div>
+            </template>
+          </core-collapse>
+        </template>
+      </core-collapse>
+    </template>
+
+  </template>
+  <script>
+    Polymer({
+      publish: {
+        objects: {
+          reflect: true,
+          value: []
+        }
+      },
+
+      ready: function () {
+        var mkObj = function (name, components) {
+          var strToComponent = function (compStr) {
+            if (compStr === 't') {
+              return { componentType: 'Transform'
+                     , properties: [ { name: 'Position', value: 0 }
+                                   , { name: 'Rotation', value: 0 }
+                                   , { name: 'Scale', value: 0 } ] }
+            } else if (compStr === 'g') {
+              return { componentType: 'Geometry'
+                     , properties:  [] }
+            } else if (compStr === 'c') {
+              return { componentType: 'Collider'
+                     , properties: [] }
+            } else {
+              return { componentType: 'New component' }
+            }
+          } 
+
+          return {
+            name: name,
+            components: components.map(strToComponent)
+          }
+        }
+
+        this.objects = [ mkObj('Cursor', ['t','g','c'])
+                       , mkObj('Background', ['t','g'])
+                       , mkObj('Trigger box', ['t','c'])
+                       ];
+      },
+
+      objectsChanged: function (oldValue, newValue) {
+        // console.log('objectsChanged: ', newValue);
+      },
+
+      toggleObjectCollapse: function (evt, dtl, sndr) {
+        this.toggleOpened(sndr);
+      },
+
+      toggleComponentCollapse: function (evt, dtl, sndr) {
+        this.toggleOpened(sndr);
+      },
+
+      toggleOpened: function (hdr) {
+        $(hdr).next('core-collapse')[0].toggle();
+      }
+    });
+  </script>
+</polymer-element>

@@ -1,0 +1,137 @@
+<link rel="import" href="../js/libs/polymer/polymer.html">
+
+<polymer-element name="signal-scope" attributes="signal width height">
+  <template>
+    <style>
+    </style>
+
+  <!-- <div id="stage-container"> -->
+    <div id="stage"></div>
+  <!-- </div> -->
+  </template>
+  <script>
+    Polymer({
+      i: 0,
+
+      observe: {
+        width: 'dimensionsChanged',
+        height: 'dimensionsChanged'
+      },
+
+      width: 500,
+
+      height: 500,
+
+      bgColor: "black",
+
+      gfx: undefined,
+
+      stage: undefined,
+
+      isDrawing: false,
+      isDrawingChanged: function () {
+        if (this.isDrawing) {
+          this.redraw();
+        }
+      },
+
+      // time between samples in ms
+      sampleLength: 10,
+
+      // value to be read; external must mutate this!
+      signal: 0,
+
+      // most recent sample values
+      buffer: [],
+
+      // number of displayed samples
+      bufferSize: 30,
+
+      dimensionsChanged: function () {
+        var width = this.offsetWidth;
+        var height = this.offsetHeight;
+        this.$.stage.style.width = width;
+        this.$.stage.style.height = height;
+        this.stage.width = width;
+        this.stage.height = height;
+        this.gfx.width = width;
+        this.gfx.height = height;
+      },
+
+      attached: function () {
+        // console.log($(this).width(), $(this).height());
+        this.$.stage.style.width = $(this).width;
+        this.$.stage.style.height = $(this).height;
+        this.stage.width = $(this).width;
+        this.stage.height = $(this).height;
+        this.gfx.width = $(this).width;
+        this.gfx.height = $(this).height;
+      },
+
+      ready: function() {
+        this.setupCanvas(this.width, this.height, 0x000000);
+        window.setInterval(this.sample.bind(this), this.sampleLength);
+
+        Object.observe({ width: this.style.width, height: this.style.height }, function (name, obj, type) {
+          console.log('changed', name, obj, type);
+        });
+      },
+
+      setupCanvas: function (width, height, bgColor) {
+        this.stage = document.createElement('canvas');
+        this.stage.width = width;
+        this.stage.height = height;
+        this.$.stage.appendChild(this.stage);
+
+        this.bgColor = bgColor;
+
+        this.gfx = this.stage.getContext('2d');
+
+        this.gfx.width = width;
+        this.gfx.height = height;
+
+        window.requestAnimationFrame(this.redraw.bind(this));
+      },
+
+
+      // pushes the newest sample onto the result stack
+      sample: function () {
+        this.buffer.unshift(this.signal);
+        this.buffer = this.buffer.slice(0, this.bufferSize+1);
+      },
+
+      // redraws scope with current buffer
+      redraw: function() {
+        this.gfx.clearRect(0, 0, this.stage.width, this.stage.height);
+        this.gfx.fillStyle = this.bgColor;
+        this.gfx.beginPath();
+        this.gfx.rect(0, 0, this.stage.width, this.stage.height);
+        this.gfx.fill();
+
+        this.gfx.strokeStyle = "white";
+
+        if (this.buffer.length > 1) {
+          var segmentWidth = this.stage.width / (this.buffer.length - 1);
+          var yDisplacement = this.stage.height / 2;
+          var maxY = Math.max.apply(null, this.buffer.map(function (elm) { return Math.abs(elm) }));
+          var yScale = (maxY === 0 ? 0 : (1 / maxY)) * (this.stage.height / 2);
+
+          var drawSegment = (function (elm, idx, arr) {
+            if (idx !== 0) {
+              this.gfx.lineTo(idx * segmentWidth, arr[idx] * yScale + yDisplacement);
+              this.gfx.stroke();
+            }
+          }).bind(this);
+
+          // start pen at first element
+          this.gfx.moveTo(0, this.buffer[0] * yScale + yDisplacement);
+          this.buffer.forEach(drawSegment);
+
+          if (this.isDrawing) {
+            window.requestAnimationFrame(this.redraw.bind(this));
+          }
+        }
+      }
+    });
+  </script>
+</polymer-element>

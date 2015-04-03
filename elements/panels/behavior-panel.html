@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../../js/libs/polymer/polymer.html">
+<link rel="import" href="../behavior-field.html">
+
+<polymer-element name="behavior-panel" attributes="scene">
+  <template>
+    <style>
+      :host {
+        display: block;
+        height: 100%;
+      }
+
+      #behaviorTabs {
+
+      }
+
+      /* sliding bar color */
+      paper-tabs::shadow #selectionBar {
+        background-color: #333;
+      }
+
+      /* ink ripple color 
+      paper-tabs paper-tab::shadow #ink {
+        color: #fff;
+      }*/
+
+      paper-tabs {
+        background-color: #ddd;
+      }
+
+      #behaviorField {
+        position: absolute;
+        left: 50;
+        top: 50;
+        /*display: inherit;
+        width: 100%;
+        height: 100%;*/
+      }
+    </style>
+
+    <div vertical flow layout>
+      <paper-tabs id="behaviorTabs" noink="true" selected="0" on-core-select="{{tabSwitched}}">
+        <template repeat="{{behaviors}}">
+          <paper-tab>{{name}}</paper-tab>
+        </template>
+      </paper-tabs>
+      <behavior-field id="behaviorField" 
+        on-node-changed="{{userModifiedNode}}"
+        on-node-added="{{userAddedNode}}">
+      </behavior-field>
+    </div>
+  </template>
+  <script>
+    require([ 'js/app' ], function () {
+      require([ 'core/behavior/node-registry'
+              , 'core/behavior/behavior'
+              , 'util/objutil' ], function (NodeRegistry, Behavior, ObjUtil) {
+        Polymer('behavior-panel', {
+          publish: {
+            scene: {
+              objects: [],
+              behaviors: {}
+            }
+          },
+
+          observe: {
+            'scene': 'updateView',
+            'activeBehavior': 'updateView'
+          },
+
+          activeBehavior: {},
+
+          controller: null,
+
+          // ----- Lifecycle ----- //
+
+          ready: function () {
+            window.onresize = this.updateDimensions.bind(this);
+          },
+
+          controllerChanged: function () {
+            this.$.behaviorField.controller = this.controller;
+          },
+
+
+          // ----- Public methods ----- //
+
+          getField: function () {
+            return this.$.behaviorField;
+          },
+
+
+          // ----- Event handlers ----- //
+
+          tabSwitched: function (evt, dtl, sndr) {
+            if (dtl.isSelected) {
+              this.activeBehavior = this.behaviors[sndr.selected];
+              this.$.behaviorField.activeBehavior = this.behaviors[sndr.selected];
+            }
+          },
+
+          userModifiedNode: function (evt) {
+            var nodeData = NodeRegistry.getNode(evt.detail.newKind);
+            var newNode = nodeData.construct();
+
+            if (newNode !== undefined) {
+              this.activeBehavior.swapNode(this.activeBehavior.nodes[evt.detail.nodeId],
+                                           newNode);
+            }
+            this.updateView();
+          },
+
+          userAddedNode: function (evt) {
+            var node = NodeRegistry.getNode(evt.detail.kind).construct();
+            node.position = evt.detail.position;
+
+            this.activeBehavior.addNode(node);
+            this.updateView();
+          },
+
+
+          // ----- Updates ----- //
+
+          updateView: function () {
+            var self = this;
+
+            var behaviorList = Object.keys(this.scene.behaviors).map(function (k) {
+              return self.scene.behaviors[k];
+            });
+
+            this.$.behaviorField.behaviors = behaviorList;
+            this.behaviors = behaviorList;
+
+            if (this.$.behaviorField.activeBehavior === null) {
+              if (behaviorList.length > 0) {
+                this.$.behaviorField.activeBehavior = behaviorList[0];
+              }
+            }
+
+            this.updateDimensions();
+          },
+
+          updateDimensions: function () {
+            this.$.behaviorField.dimensions = {
+              width: $(this.$.behaviorField).width(),
+              height: $(this.$.behaviorField).height()
+            }
+          },
+
+        });
+      });
+    });
+  </script>
+</polymer-element>

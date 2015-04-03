@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../js/libs/polymer/polymer.html">
+<link rel="import" href="../js/libs/paper-shadow/paper-shadow.html">
+<link rel="import" href="../js/libs/core-input/core-input.html">
+<link rel="import" href="../js/libs/core-pages/core-pages.html">
+<link rel="import" href="../js/libs/core-icon/core-icon.html">
+<link rel="import" href="signal-scope.html">
+
+<polymer-element name="arrow-node" attributes="node xpos ypos isSelected">
+  <template>
+    <style>
+
+      :host {
+        /*position: relative;*/
+        left: {{xpos}}px;
+        top: {{ypos}}px;
+        /*max-width: 400px;*/
+      }
+
+      /*#inlets > div {
+        margin-left: 1px;
+        margin-right: 1px;
+      }*/
+
+      .inlet-spacer {
+        margin-left: 10px;
+        margin-right: 10px;
+      }
+
+      * {
+        -moz-user-select: none; 
+        -webkit-user-select: none; 
+        -ms-user-select:none; 
+        -o-user-select:none;
+        user-select:none;
+        cursor: default;
+      }
+
+      #card {
+        background-color: white;
+        padding: 5px 5px;
+        min-width: 80px;
+      }
+
+      #nodeKind {
+        display: inline-block;
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden; 
+      }
+
+      #editNodeKindInput {
+        text-align: center;
+        width: 100%;
+      }
+
+      #kindBox {
+        /*margin-top: 5px;
+        margin-bottom: 5px;*/
+        margin: 5px;
+        text-align: center;
+      }
+
+      #inlets, #outlets {
+        font-size: 8pt;
+      }
+
+      .inlet, #outlet { 
+        padding: 0 10px;
+        white-space: nowrap;
+      }
+
+      .inlet:hover, #outlet:hover {
+        font-weight: 800;
+      }
+
+      #scopeToggle {
+        padding: 20px;
+        /*min-width: 300px;
+        min-height: 100px;*/
+      }
+
+      #scope {
+        display: inline-block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+
+    <paper-shadow id="card" 
+      z="1" 
+      animated
+      touch-action="none">
+      <div id="inlets" horizontal center-justified layout>
+        <template repeat="{{inlet, inletIndex in inlets(node.model)}}">
+          <div id="{{ 'inlet' + inletIndex }}"
+              class="inlet" 
+              index="{{inletIndex}}"
+              node-id="{{node.model.id}}"
+              on-down="{{inletSelected}}">
+            {{inlet.type}}
+          </div>
+          <template if="{{inletIndex != inlets(node.model).length - 1}}">
+            <div class="inlet-spacer" flex></div>
+          </template>
+        </template>
+      </div>
+      <core-pages id="scopeToggle" 
+        valueattr="id" 
+        selected="kindBox" 
+        touch-action="none"
+        on-down="{{startPosition}}"
+        on-up="{{endPosition}}"
+        flex>
+        <div id="kindBox" horizontal layout>
+          <core-pages id="kindPages" valueattr="id" selected="nodeKind" flex>
+            <div id="nodeKind">
+              {{node.model.arrow.name}}
+            </div>
+            <div id="editNodeKind">
+              <input id="editNodeKindInput" 
+                is="core-input" 
+                placeholder="new node" 
+                committedValue="{{committedNodeKind}}">
+            </div>
+          </core-pages>
+          <core-icon id="editButton" 
+            icon="create" 
+            style="width: 12px; height: 12px;"
+            touch-action="none"
+            on-tap="{{startEdit}}"
+            self-end>
+          </core-icon>
+        </div>
+
+        <signal-scope id="scope">
+        </signal-scope>
+      </core-pages>
+      <div id="outlets" horizontal center-justified layout>
+        <div id="outlet"
+          node-id="{{node.model.id}}" 
+          touch-action="none"
+          on-down="{{outletSelected}}">
+          {{outlet(node.model).type}}
+        </div>
+      </div>
+    </paper-shadow>
+  </template>
+  <script>
+    require([ 'js/app' ], function() {
+      require([ 'core/datatypes'
+              , 'core/signals'
+              , 'underscore' ], 
+              function (Type, Signal, _) {
+        Polymer('arrow-node', {
+
+          // ----- Polymer fields ----- //
+
+          publish: {
+            xpos: {
+              value: 0,
+              reflect: true
+            },
+            ypos: {
+              value: 0,
+              reflect: true
+            },
+            node: {
+              value: {
+                inlets: [],
+                name: "",
+                id: "",
+                outlet: {
+                  type: ""
+                }
+              },
+              reflect: false
+            }
+          },
+
+
+          // ----- Lifecycle ----- //
+
+          ready: function () {
+            this.committedNodeKind = this.node.model.name;
+          },
+
+          attached: function () {
+            this.setupEventListeners();
+          },
+
+
+          // ----- Properties and change watchers ----- //
+
+          // The user-entered node kind.
+          committedNodeKind: null,
+          committedNodeKindChanged: function (oldValue, newValue) {
+            // just got a new value, leave edit mode
+            this.$.kindPages.selected = "nodeKind";
+
+            if (this.node.name !== this.committedNodeKind) {
+              this.fire('node-changed', {
+                nodeId: this.node.model.id,
+                newKind: this.committedNodeKind,
+                oldKind: this.node.model.name
+              });
+            } else {
+              // keep old node
+            }
+          },
+
+          unsub: null,
+
+          isSelected: false,
+
+          isSelectedChanged: function (oldv, newv) {
+            if (this.isSelected) {
+              this.$.card.setZ(3);
+              this.$.card.style['z-index'] = 3;
+            } else {
+              this.$.card.setZ(1);
+              this.$.card.style['z-index'] = 0;
+            }
+          },
+
+
+          // ----- Public methods ----- //
+
+          getInlet: function (index) {
+            // return this.$.inlets.querySelector('#inlet' + index);
+            return $(this.$.inlets).find('.inlet')[index];
+          },
+
+          getOutlet: function () {
+            return this.$.outlet;
+          },
+
+          // ----- Helper methods ----- //
+
+          inlets: function (ofNode) {
+            var self = this;
+            return _.map(ofNode.arrow.inputTypes, function (elm) {
+              return {
+                type: self.displayType(ofNode.currentTypes(elm)),
+              }
+            });
+          },
+
+          outlet: function (ofNode) {
+            var self = this;
+            return {
+              type: self.displayType(ofNode.currentTypes(ofNode.arrow.returnType))
+            };
+          },   
+
+          displayType: function (ty) {
+            var self = this;
+            if (ty.category === 'Primitive') {
+              return ty.type;
+            } else if (ty.category === 'Union') {
+              return ty.types.map(self.displayType, self).join(' | ');
+            } else if (ty.category === 'Variable') {
+              return ty.id;
+            } else if (ty.category === 'Record') {
+              return ty.fields.map(function (elm) {
+                return elm.id + " : " + self.displayType(elm.type);
+              }, self).join(', ');
+            }
+          },       
+
+
+          // ----- Setup methods ----- //
+
+          startEdit: function (evt) {
+            this.$.editNodeKindInput.value = this.node.model.name;
+            this.$.kindPages.selected = "editNodeKind";
+            this.$.editNodeKindInput.focus();
+
+            var self = this;
+            var evt = this.$.editNodeKindInput.addEventListener('keydown', function (evt) {
+              if (evt.keyIdentifier === "U+001B") {
+                self.$.kindPages.selected = "nodeKind";
+                self.$.editNodeKindInput.value = self.node.model.name;
+              }
+            });
+          },
+
+          startPosition: function (evt) {
+            this.fire('node-selected', { 
+              isDown: true, 
+              sender: this,
+              position: {
+                x: evt.clientX,
+                y: evt.clientY
+              }
+            });
+          },
+
+          endPosition: function (evt) {
+            this.fire('node-selected', { 
+              isDown: false, 
+              sender: this,
+              position: {
+                x: evt.clientX,
+                y: evt.clientY
+              }
+            });
+          },
+
+          // dragNode: function (evt) {
+          //   this.fire('node-drag', {
+          //     sender: this,
+          //     to: {
+          //       x: evt.clientX,
+          //       y: evt.clientY
+          //     }
+          //   });
+          // },
+
+          inletSelected: function (evt) {
+            this.fire('inlet-selected', {
+              sender: evt.path[0],
+              mouse: evt,
+              node: this
+            });
+          },
+
+          outletSelected: function (evt) {
+            this.fire('outlet-selected', {
+              sender: this.$.outlet,
+              mouse: evt,
+              node: this
+            });
+          },
+
+          setupEventListeners: function () {
+            var self = this;
+
+            // $(this.$.card).on('mousedown tap', function (evt) {
+            //   // clicking on this card should consume events
+            //   evt.stopPropagation();
+            // });
+
+            // TODO: put these touch stuffs back in
+            // this.addEventListener('touchstart', function (evt) {
+            //   self.$.card.setZ(3);
+            //   self.$.card.style['z-index'] = 3;
+
+            //   self.fire('node-selected', { 
+            //     isSelected: true, 
+            //     sender: self,
+            //     mouse: { clientX: evt.touches[0].clientX, clientY: evt.touches[0].clientY }
+            //   });
+            // })
+
+            // this.$.nodeKind.addEventListener('touchend', function (evt) {
+            //   self.$.card.setZ(1);
+            //   self.$.card.style['z-index'] = 0;
+
+            //   self.fire('node-selected', { 
+            //     isSelected: false, 
+            //     sender: self
+            //   });
+            // }); 
+
+            // TODO: publish and control in behavior-field
+            window.addEventListener('keydown', function (evt) {
+              if (evt.keyIdentifier === "Shift") {
+                // make sure that we unplugged things
+                if (self.unsub !== null) {
+                  self.unsub();
+                  self.unsub = null;
+                }
+
+                // plug signals into scopes
+                self.unsub = self.node.view.subscribe(function (v) {
+                  if (Type.isRefinement(v.type, Type.Number)) {
+                    self.$.scope.signal = v.val;
+                  }
+                });
+
+                // start drawing on scope
+                self.$.scope.isDrawing = true;
+
+                // switch pages
+                self.$.scopeToggle.selected = "scope";
+                self.$.scope.dimensionsChanged();
+              }
+            });
+
+            window.addEventListener('keyup', function (evt) {
+              if (event.keyIdentifier === "Shift") {
+                // switch pages
+                self.$.scopeToggle.selected = "kindBox";
+
+                // stop drawing on scope
+                self.$.scope.isDrawing = false;
+
+                // unplug signals
+                if (self.unsub !== null) {
+                  self.unsub();
+                  self.unsub = null;
+                }
+              }
+            });
+
+            // var allInlets = this.$.inlets.querySelectorAll('.inlet');
+            // for (var i = allInlets.length - 1; i >= 0; i--) {
+            //   var inlet = allInlets[i];
+            //   inlet.addEventListener('mousedown', function (evt) {
+            //     self.fire('inlet-selected', {
+            //       sender: inlet,
+            //       mouse: evt,
+            //       node: self
+            //     });
+            //   });
+            // };
+
+            // this.$.outlets.addEventListener('mousedown', function (evt) {
+            //   self.fire('outlet-selected', {
+            //     sender: self.$.outlet,
+            //     mouse: evt,
+            //     node: self
+            //   });
+            // });
+          }
+        });
+      });
+    })
+  </script>
+</polymer-element>

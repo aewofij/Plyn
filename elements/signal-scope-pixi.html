@@ -1,0 +1,100 @@
+<link rel="import" href="../js/libs/polymer/polymer.html">
+<script src="../js/libs/pixi/bin/pixi.js"></script>
+
+<polymer-element name="signal-scope-pixi">
+  <template>
+    <style>
+    </style>
+
+  <div id="stage-container">
+    <div id="stage"></div>
+  </div>
+  </template>
+  <script>
+    Polymer({
+      i: 0,
+
+      created: function() {
+        // initialize published properties
+        this.sig = 0;
+      },
+
+      ready: function() {
+        this.setupPixi(500, 500, 0x000000);
+        window.setInterval(this.sample.bind(this), this.sampleLength);
+      },
+
+      setupPixi: function (width, height, bgcolor) {
+        // create an new instance of a pixi stage
+        this.stage = new PIXI.Stage(bgcolor);
+
+        // create a renderer instance.
+        this.renderer = PIXI.autoDetectRenderer(width, height);
+
+        // add the renderer view element to the DOM
+        // TODO: check if this messes w the shadow DOM?
+        this.$.stage.appendChild(this.renderer.view);
+
+        this.stage.addChild(this.gfx);
+
+        this.gfx.width = width;
+        this.gfx.height = height;
+
+        requestAnimFrame(this.redraw.bind(this));
+      },
+
+      gfx: new PIXI.Graphics(),
+
+      stage: undefined,
+
+      renderer: undefined,
+
+      // time between samples in ms
+      sampleLength: 10,
+
+      // value to be read; external must mutate this!
+      sig: 0,
+
+      // most recent sample values
+      buffer: [],
+
+      // number of displayed samples
+      bufferSize: 30,
+
+      // pushes the newest sample onto the result stack
+      sample: function () {
+        this.buffer.unshift(this.sig);
+        this.buffer = this.buffer.slice(0, this.bufferSize+1);
+      },
+
+      // redraws scope with current buffer
+      redraw: function() {
+        requestAnimFrame(this.redraw.bind(this));
+
+        this.gfx.clear();
+
+        this.gfx.lineStyle(1, 0xffffff);
+        if (this.buffer.length > 1) {
+          var segmentWidth = this.renderer.width / (this.buffer.length - 1);
+          var yDisplacement = this.renderer.height / 2;
+          var maxY = Math.max.apply(null, this.buffer.map(function (elm) { return Math.abs(elm) }));
+          var yScale = (maxY === 0 ? 0 : (1 / maxY)) * (this.renderer.height / 2);
+
+          var drawSegment = (function (elm, idx, arr) {
+            if (idx !== 0) {
+              this.gfx.lineTo(idx * segmentWidth, arr[idx] * yScale + yDisplacement);
+            }
+          }).bind(this);
+
+          // start pen at first element
+          this.gfx.moveTo(0, this.buffer[0] * yScale + yDisplacement);
+
+          this.buffer.forEach(drawSegment);
+        }
+
+        // render the stage
+        this.renderer.render(this.stage);
+      }
+    });
+  </script>
+</polymer-element>

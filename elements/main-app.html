@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../js/libs/polymer/polymer.html">
+<link rel="import" href="../js/libs/core-drawer-panel/core-drawer-panel.html">
+<link rel="import" href="../js/libs/core-header-panel/core-header-panel.html">
+<link rel="import" href="../js/libs/core-toolbar/core-toolbar.html">
+<link rel="import" href="../js/libs/core-splitter/core-splitter.html">
+<link rel="import" href="../js/libs/core-selector/core-selector.html">
+
+<link rel="import" href="panels/obj-list-panel.html">
+<link rel="import" href="panels/scene-panel.html">
+<link rel="import" href="panels/behavior-panel.html">
+<link rel="import" href="flower-picker.html">
+
+<polymer-element name="main-app">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      [drawer] {
+        background-color: #eee;
+        border-right: 1px solid #888;
+      }
+
+      [main] {
+        background-color: #888;
+        height: 100%;
+      }
+
+      obj-list-panel {
+        /*margin: 50px 30px;*/
+      }
+
+      behavior-panel {
+        height: 60%;
+      }
+
+      scene-panel {
+        position: relative;
+        background-color: white;
+        cursor: none;
+      }
+    </style>
+
+    <core-drawer-panel>
+      <obj-list-panel drawer id="listPanel"></obj-list-panel>
+      <div main>
+        <behavior-panel id="behaviorPanel"></behavior-panel>
+        <core-splitter direction="down" minSize="100px"></core-splitter>
+        <scene-panel id="scenePanel" flex></scene-panel>
+      </div>
+    </core-drawer-panel>
+  </template>
+  <script>
+    DLGlobals = {};
+
+    require(['js/app'], function (app) {
+      require([ 'run'
+              , 'ui/behavior-panel-controller'
+              , 'underscore'
+              ], function (run, BehaviorPanelController, _) {
+        Polymer('main-app', {
+          ready: function () {
+            Object.defineProperty(run.scene, 'dirtyIfChanged', {
+              enumerable: false,
+              writable: true,
+              value: false
+            });
+            Object.defineProperty(run.scene, 'markDirty', {
+              enumerable: true,
+              writable: false,
+              value: function () {
+                run.scene.dirtyIfChanged = !run.scene.dirtyIfChanged;
+              }
+            });
+
+            this.$.listPanel.scene = run.scene;
+            this.$.behaviorPanel.scene = run.scene;
+            this.$.behaviorPanel.controller = new BehaviorPanelController(run.scene);
+            this.$.scenePanel.scene = run.scene;
+          }
+        });
+      });
+    });
+  </script>
+</polymer-element>

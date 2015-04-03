@@ -1,0 +1,35 @@
+{
+  "name": "thesis",
+  "version": "0.0.1",
+  "authors": [
+    "David Lee <aewofij@gmail.com>"
+  ],
+  "description": "An environment for interaction development.",
+  "main": "run.js",
+  "license": "MIT",
+  "homepage": "david-lee.net",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "qunit": null,
+    "requirejs": null,
+    "polymer": "Polymer/polymer#~0.5.5",
+    "paper-icon-button": "Polymer/paper-icon-button#~0.5.5",
+    "core-elements": "Polymer/core-elements#~0.5.5",
+    "core-list": "Polymer/core-list#~0.5.5",
+    "pixi": "~2.2.7",
+    "bacon": "~0.7.53",
+    "physicsjs": "~0.7.0",
+    "fabric": "~1.4.13",
+    "underscore": "~1.8.2"
+  },
+  "devDependencies": {
+    "qunit": "~1.17.1"
+  }
+}

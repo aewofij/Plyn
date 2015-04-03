@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../../js/libs/polymer/polymer.html">
+
+<polymer-element name="scene-panel" attributes="">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      /*#viewport {
+        background-color: white;
+        min-width: 500;
+        min-height: 500;
+      }*/
+    </style>
+    <div id="viewport"></div>
+  </template>
+  <script>
+    require([ 'js/app' ], function() {
+      require([ 'physicsjs'
+              , 'physics/behaviors/transform' ], 
+              function (Physics) {
+        Polymer('scene-panel', {
+          publish: {
+            scene: {
+              objects: []
+            }
+          },
+
+          ready: function () {
+            this.setupWorld();
+            this.setupScene(this.scene);
+
+            window.addEventListener('resize', this.resizeSelf.bind(this));
+
+            DLGlobals.sceneViewport = this.$.viewport;
+          },
+
+          attached: function () {
+            this.resizeSelf();
+          },
+
+          setupWorld: function (scene) {
+            var self = this;
+
+            self.world = Physics({ integrator: 'velocity-verlet' });
+            self.world.add(Physics.behavior('transform'));
+
+            // subscribe to ticker to advance the simulation
+            Physics.util.ticker.on(function( time, dt ){
+              self.world.step(time);
+            });
+            // start the ticker
+            Physics.util.ticker.start();
+
+            self.renderer = Physics.renderer('pixi', {
+              el: self.$.viewport,
+              width: 500,
+              height: 500
+            });
+
+            self.renderer.resize(1500, 500);
+
+            self.world.add(self.renderer);
+
+            self.world.on('step', function () {
+              self.world.render();
+            });
+
+            return self.renderer; 
+            // why u do this
+          },
+
+          setupScene: function (scene) {
+            var self = this;
+
+            if (self.world !== null && self.world !== undefined) {
+              scene.objects.forEach(function (elm) {
+                if (!self.world.has(elm.body)) {
+                  self.world.add(elm.body);
+                }
+                // TODO: remove dead bodies
+              });
+            }
+          },
+
+          resizeSelf: function () {
+            var rect = this.getBoundingClientRect(),
+               width = this.offsetParent.offsetWidth, 
+              height = this.offsetParent.offsetHeight;
+            this.renderer.resize(width, height);
+            this.$.viewport.style.width = width + "px";
+            this.$.viewport.style.height = height + "px";
+          },
+
+          sceneChanged: function (oldValue, newValue) {
+            this.setupScene(this.scene);
+          }
+        });
+      });
+    });
+  </script>
+</polymer-element>

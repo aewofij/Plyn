@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+
+<link rel="import" href="../../js/libs/polymer/polymer.html">
+<link rel="import" href="../hierarchy-list.html">
+
+<polymer-element name="obj-list-panel" attributes="scene">
+  <template>
+    <style>
+      :host {
+        display: block;
+        width: 100%;
+      }
+      #hierarchy {
+        /*padding-top: 50px;*/
+      }
+    </style>
+    <hierarchy-list id="hierarchy"></hierarchy-list>
+  </template>
+  <script>
+    Polymer({
+      publish: {
+        scene: {
+          objects: []
+        }
+      },
+
+      ready: function () {
+        this.updateView();
+      },
+
+      sceneChanged: function (oldValue, newValue) {
+        this.updateView();
+      },
+
+      updateView: function () {
+        var objectsView = this.scene.objects.map(function (obj) {
+          var result = {
+            name: obj.name,
+            components: Object.keys(obj.components).map(function (compKey) {
+              // TODO: show inherited signals
+              var comp = obj.components[compKey];
+              return {
+                componentType: comp.componentType,
+                signals: Object.keys(comp.signals[comp.componentType]).map(function (key) {
+                  return {
+                    name: key,
+                    type: comp.signals[comp.componentType][key].type
+                  };
+                })
+              };
+            })
+          };
+          return result;
+        });
+
+        this.$.hierarchy.objects = objectsView;
+      }
+    });
+  </script>
+</polymer-element>
