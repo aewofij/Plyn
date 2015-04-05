@@ -5,10 +5,10 @@ define([ 'core/signals'
        , 'core/arrow'
        , 'arrows/std-arrows'
        , 'modules/transform'
-       , 'util/vector3'
+       , 'util/vector2'
        , 'util/objutil'
        ], function ( Signal, Type, Data, Action, Arrow,
-                     StdArrows, Transform, Vector3, ObjUtil ) {
+                     StdArrows, Transform, Vector2, ObjUtil ) {
   return {
     run: function () {
       QUnit.module('Standard arrows');
@@ -20,11 +20,12 @@ define([ 'core/signals'
         //   return v + 1;
         // });
         var addOne = StdArrows.numberExpression();
-        addOne.parameters['expression'] = function (v) {
+        addOne.setParameter('expression', function (v) {
           return v + 1;
-        };
+        });
 
         var addOneInstance = addOne.plug(s1);
+
 
         Signal.push(s1, Data.Number(1));
         assert.deepEqual(Signal.pull(addOneInstance.signal),
@@ -33,9 +34,9 @@ define([ 'core/signals'
         assert.deepEqual(Signal.pull(addOneInstance.signal),
                          Data.Number(6));
 
-        addOne.parameters['expression'] = function (v) {
+        addOne.setParameter('expression', function (v) {
           return v + 2;
-        };
+        });
 
         Signal.push(s1, Data.Number(1));
         assert.deepEqual(Signal.pull(addOneInstance.signal),
@@ -49,7 +50,8 @@ define([ 'core/signals'
         var s1 = Signal.Signal(Type.Number, Data.Number(0));
         var s2 = Signal.Signal(Type.Number, Data.Number(0));
 
-        var addOne = StdArrows.numberExpression(function (v1, v2) {
+        var addOne = StdArrows.numberExpression();
+        addOne.setParameter('expression', function (v1, v2) {
           return v1 + v2;
         });
 
@@ -62,6 +64,27 @@ define([ 'core/signals'
         Signal.push(s1, Data.Number(5));
         assert.deepEqual(Signal.pull(addOneInstance.signal),
                          Data.Number(7));
+      });
+
+      QUnit.test('vectorExpression', function (assert) {
+        var s1 = Signal.Signal(Vector2.type);
+
+        var scale = StdArrows.vectorExpression();
+        var done = assert.async();
+        Object.observe(scale.inputTypes, function () {
+          var scaleInst = scale.plug(s1);
+
+          Signal.push(s1, Vector2.Vector2 (Data.Number (2)) (Data.Number (4)));
+          assert.deepEqual(Signal.pull(scaleInst.signal),
+                           Vector2.Vector2 (Data.Number (1)) (Data.Number (2)));
+          done();
+        });
+        scale.setParameter('expression', function (vec) {
+                               return {
+                                 x: vec.x * 0.5,
+                                 y: vec.y * 0.5
+                               };
+                             });
       });
 
       QUnit.test('merge', function (assert) {
@@ -81,36 +104,41 @@ define([ 'core/signals'
                          Data.Boolean(true));
       });
 
-      QUnit.test('foldp', function (assert) {
-        var s1 = new Signal.Signal(Type.Number, Data.Number(1));
+      // QUnit.test('foldp', function (assert) {
+      //   var s1 = new Signal.Signal(Type.Number, Data.Number(1));
 
-        var sump = StdArrows.foldp(Data.Number(0), Type.Number, function (v, acc) {
-          return Data.Number (v.val + acc.val);
-        });
+      //   var sump = StdArrows.foldp();
+      //   sump.setParameter('initialState', Data.Number(0));
+      //   sump.setParameter('returnType', Type.Number);
+      //   sump.setParameter('transitionFunction', function (v, acc) {
+      //     return Data.Number (v.val + acc.val);
+      //   });
 
-        var arrowInfo = sump.plug(s1);
+      //   var arrowInfo = sump.plug(s1);
 
-        // foldp does not look at any signal values prior to plugging
-        assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(0));
+      //   // foldp does not look at any signal values prior to plugging
+      //   assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(0));
 
-        Signal.push(s1, Data.Number(0));
-        assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(0));
+      //   Signal.push(s1, Data.Number(0));
+      //   assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(0));
 
-        Signal.push(s1, Data.Number(1));
-        assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(1));
+      //   Signal.push(s1, Data.Number(1));
+      //   assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(1));
 
-        Signal.push(s1, Data.Number(2));
-        assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(3));
+      //   Signal.push(s1, Data.Number(2));
+      //   assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(3));
 
-        Signal.push(s1, Data.Number(3));
-        assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(6));
-      });
+      //   Signal.push(s1, Data.Number(3));
+      //   assert.deepEqual(Signal.pull(arrowInfo.signal), Data.Number(6));
+      // });
 
       QUnit.test('pushTo', function (assert) {
         var s1 = Signal.Signal(Type.Number, Data.Number(1));
         var s2 = Signal.Signal(Type.Number, Data.Number(0));
 
-        var inst = StdArrows.pushTo(s2).plug(s1);
+        var pushTo = StdArrows.pushTo();
+        pushTo.setParameter('signal', s2);
+        var inst = pushTo.plug(s1);
 
         inst.pull();
 
@@ -205,7 +233,10 @@ define([ 'core/signals'
       QUnit.test('matchType', function (assert) {
         var uSig = Signal.Signal(Type.Union(Type.Number, Type.String));
 
-        var matchNumber = StdArrows.matchType(Type.Number, Data.Number(0)).plug(uSig);
+        var matchArrow = StdArrows.matchType();
+        matchArrow.setParameter('type', Type.Number);
+        matchArrow.setParameter('defaultValue', Data.Number(0))
+        var matchNumber = matchArrow.plug(uSig);
 
         Signal.push(uSig, Data.Number(3));
         assert.deepEqual(Signal.pull(matchNumber.signal), Data.Number(3));
@@ -222,7 +253,9 @@ define([ 'core/signals'
         var barSig = Signal.Signal(Type.Boolean, Data.Boolean(false));
         var recType = Type.Record ([{ id: 'foo', type: Type.Number },
                                     { id: 'bar', type: Type.Boolean }]);
-        var br = StdArrows.buildRecord(recType).plug(fooSig, barSig);
+        var brArrow = StdArrows.buildRecord();
+        brArrow.setParameter('record type', recType);
+        var br = brArrow.plug(fooSig, barSig);
 
         Signal.push(fooSig, Data.Number (2));
         Signal.push(barSig, Data.Boolean (true));
@@ -248,7 +281,8 @@ define([ 'core/signals'
         var recSig1 = Signal.Signal (recType1);
         var recSig2 = Signal.Signal (recType2);
 
-        var getFooArrow = StdArrows.fieldAccess('foo');
+        var getFooArrow = StdArrows.fieldAccess();
+        getFooArrow.setParameter('field id', 'foo');
         var getFoo = getFooArrow.plug(recSig1);
 
         Signal.push(recSig1, Data.Record (recType1) 

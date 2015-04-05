@@ -16,14 +16,17 @@ define([ 'underscore' ], function (_) {
      *      | { from: <node id> }
      */
     beginPatching: function (info) {
-      if (_.has(info, 'to')) {
+      console.log('began patching', info);
 
-      } else if (_.has(info, 'from')) {
+      // if (_.has(info, 'to')) {
+
+      // } else if (_.has(info, 'from')) {
         
-      }
+      // }
     },
 
     endPatching: function (outlet, inlet) {
+      console.log('ended patching', info);
       // TODO
     },
 

@@ -95,8 +95,8 @@
 
           tabSwitched: function (evt, dtl, sndr) {
             if (dtl.isSelected) {
-              this.activeBehavior = this.behaviors[sndr.selected];
-              this.$.behaviorField.activeBehavior = this.behaviors[sndr.selected];
+              this.controller.activeBehavior = this.behaviors[sndr.selected];
+              // this.activeBehavior = this.behaviors[sndr.selected];
             }
           },
 

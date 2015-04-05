@@ -39,6 +39,7 @@ define([ 'core/datatypes'
      */
     inputTypes: {
       enumerable: true,
+      writable: true,
       value: null
     },
 
@@ -47,6 +48,7 @@ define([ 'core/datatypes'
      */
     returnType: {
       enumerable: true,
+      writable: true,
       value: null
     },
 
@@ -56,6 +58,31 @@ define([ 'core/datatypes'
     plug: {
       enumerable: true,
       value: null
+    },
+
+
+    /* setParameter : String -> <new value of corresponding parameter>
+     * Sets the specified parameter for this Arrow, 
+     *   calling the parameter's `changed` function if present.
+     */
+    setParameter: {
+      enumerable: true,
+      value: function (paramId, newValue) {
+        var param = this.parameters[paramId];
+        if (param !== null) {
+          // TODO: check type?
+          var oldValue = param.value;
+
+          // set value
+          param.value = newValue;
+
+          // if parameter has a `changed` function, run it
+          if (param['changed'] !== undefined) {
+            param['changed'].call(this, oldValue, newValue, this);
+          }
+        }
+        return this;
+      }
     },
   });
 
@@ -101,26 +128,13 @@ define([ 'core/datatypes'
       enumerable: true,
       value: null
     },
-    // setParameter: {
-    //   enumerable: true,
-    //   value: function (paramId, newValue) {
-    //     var param = this.arrow.parameters[paramId];
-    //     if (param !== null) {
-    //       // TODO: check type?
-
-    //       // set value
-    //       param.value = newValue;
-
-    //       // replug me
-    //     }
-    //   }
-    // }
   });
 
   /* Create an arrow with an event handler paradigm.
    *
    * inputTypes : array of expected types of signal inputs
-   * parameters : array of parameters for this arrow, in form { type: <parameter type>, value: <initial value> }
+   * parameters : array of parameters for this arrow, 
+   *              in form { type: <parameter type>, value: <initial value> }
    * returnType : expected type of calculated signal
    * eventHandler : inputTypes[0] [-> inputTypes[1] -> ...] -> returnType
    * signalSetup : Signal returnType -> [Signal inputType] -> void
@@ -130,7 +144,8 @@ define([ 'core/datatypes'
    * If no `signalSetup` is supplied, the `Arrow`'s default behavior is performed, 
    *   pulling the most recent values from the plugged inputs.
    */
-  function EventArrow (name, parameters, inputTypes, returnType, eventHandler, signalSetup) {
+  function EventArrow (name, parameters, inputTypes, 
+                       returnType, eventHandler, signalSetup) {
     return Object.create(Arrow.prototype, {
       name: {
         enumerable: true,
@@ -148,12 +163,24 @@ define([ 'core/datatypes'
 
       inputTypes: {
         enumerable: true,
+        writable: true,
         value: inputTypes
+        // get: function () { 
+        //   return ((inputTypes instanceof Function) 
+        //           ? inputTypes.call(this)
+        //           : inputTypes) 
+        // }
       },
 
       returnType: {
         enumerable: true,
+        writable: true,
         value: returnType
+        // get: function () { 
+        //   return ((returnType instanceof Function) 
+        //           ? returnType.call(this) 
+        //           : returnType) 
+        // }
       },
 
       plug: {
@@ -166,12 +193,12 @@ define([ 'core/datatypes'
 
           // setup callbacks
           var cb = (function () {
-                      var resultValue = eventHandler.apply(this, 
+                      var resultValue = eventHandler.apply(arrow, 
                                                            inputs.map(Signal.pull));
                       // this checks allows the handler to not return 
                       //   in order to skip updating result signal
                       if (resultValue !== undefined) {
-                        if (Type.isRefinement(resultValue.type, returnType)) {
+                        if (Type.isRefinement(resultValue.type, this.returnType)) {
                           Signal.push(resultSignal, 
                                       resultValue);
                         } else {
@@ -199,7 +226,7 @@ define([ 'core/datatypes'
           }
 
           if (signalSetup !== undefined) {
-            signalSetup(resultSignal, inputs);
+            signalSetup.call(this, resultSignal, inputs);
           }
 
           var pull = cb;
@@ -213,20 +240,44 @@ define([ 'core/datatypes'
   /* Create an arrow with a signal transformation or subscription paradigm.
    * 
    */
-  function SignalArrow (name, inputTypes, returnType, subscriptions) {
+  function SignalArrow (name, parameters, inputTypes, returnType, subscriptions) {
     return Object.create(Arrow.prototype, {
       name: {
         enumerable: true,
         value: name
       },
+
+      /* parameters : [{type: ParameterType, value: <parameter value>}]
+       * Parameters for this Arrow. 
+       * Example: for a `pushTo` arrow, which signal to push onto.
+       */
+      parameters: {
+        enumerable: true,
+        value: parameters
+      },
+
       inputTypes: {
         enumerable: true,
+        writable: true,
         value: inputTypes
+        // get: function () { 
+        //   return ((inputTypes instanceof Function) 
+        //           ? inputTypes.call(this) 
+        //           : inputTypes) 
+        // }
       },
+
       returnType: {
         enumerable: true,
+        writable: true,
         value: returnType
+        // get: function () { 
+        //   return ((returnType instanceof Function) 
+        //           ? returnType.call(this) 
+        //           : returnType) 
+        // }
       },
+      
       plug: {
         enumerable: true,
         value: function () {
@@ -263,7 +314,7 @@ define([ 'core/datatypes'
 
   /* Creates an arrow with no inputs, which simply outputs a signal.
    */
-  function OutputArrow (signal) {
+  function OutputArrow () {
     return Object.create(Arrow.prototype, {
       name: {
         enumerable: true,
@@ -271,29 +322,52 @@ define([ 'core/datatypes'
       },
       parameters: {
         enumerable: true,
-        value: [{ type: ParameterType.signal }]
-      },
+        value: { signal: {type: ParameterType.signal, value: null} }
+      }, 
       inputTypes: {
         enumerable: true,
+        writable: true,
         value: []
       },
       returnType: {
         enumerable: true,
-        value: signal.type
+        get: function () { return this.parameters.signal.value.type }
       },
       plug: {
         enumerable: true,
         value: function () {
-          return ArrowInstance(signal, 
+          return ArrowInstance(this.parameters.signal.value, 
                                function () {}, 
                                [], 
-                               function () { return Signal.pull(signal) });
+                               function () { return Signal.pull(this.parameters.signal.value) });
         }
       }
     });
   }
 
+  // All types of Arrow parameters.
+  var ParameterType = {
+    signal: 'signal',
+    script: 'script',
+    type: 'type',
+  }
+
   function checkPlug (arrow, inputs) {
+    // make sure the arrow has types
+    var validType = function (ty) { return ty !== null && ty !== undefined };
+    if (!_.every(arrow.inputTypes, function (elm) { return validType(elm) })
+        || !validType(arrow.returnType)) {
+      throw {
+        message: 'Types not defined.' 
+                  + '\n\tInputs: ' + _.map(arrow.inputTypes, function (elm) { 
+                                      return validType(elm) ? elm.category : '<invalid>'  
+                                    })
+                  + '\n\tOutput: ' + (validType(arrow.returnType) 
+                                     ? arrow.returnType.category 
+                                     : '<invalid>')
+      };
+    }
+
     // check parity
     if (arrow.inputTypes.length !== inputs.length) {
       throw {
@@ -342,6 +416,7 @@ define([ 'core/datatypes'
     Arrow: Arrow,
     EventArrow: EventArrow,
     SignalArrow: SignalArrow,
-    OutputArrow: OutputArrow
+    OutputArrow: OutputArrow,
+    ParameterType: ParameterType
   };
 });

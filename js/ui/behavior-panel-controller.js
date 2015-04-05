@@ -10,7 +10,6 @@ define([ 'underscore', 'core/signals' ], function (_, Signal) {
 
     this.scene = theScene;
     this.activeBehavior = _.values(this.scene.behaviors)[0];
-    // Object.observe(this.scene, update); // ?
   }
 
   BehaviorPanelController.prototype = {
@@ -18,6 +17,33 @@ define([ 'underscore', 'core/signals' ], function (_, Signal) {
     // ---------- PUBLIC ---------- //
 
     // -- Access -- //
+
+    get activeBehavior () {
+      return this._activeBehavior;
+    },
+
+    set activeBehavior (newValue) {
+      var self = this;
+      if (this._activeBehavior !== null) {
+        _.each(this._activeBehavior.nodes, function (node) {
+          var nodeViewData = self.getNode(node.id).view;
+          _.each(nodeViewData.outgoing, function (edge) {
+            if (edge.shape != null) {
+              edge.shape.visible = false;
+            }
+          });
+        });
+      }
+      this._activeBehavior = newValue;
+      _.each(this._activeBehavior.nodes, function (node) {
+        var nodeViewData = self.getNode(node.id).view;
+        _.each(nodeViewData.outgoing, function (edge) {
+          if (edge.shape != null) {
+            edge.shape.visible = true;
+          }
+        });
+      });
+    },
 
     get activeNodes() {
       return this.activeBehavior
@@ -102,7 +128,8 @@ define([ 'underscore', 'core/signals' ], function (_, Signal) {
     // information about nodes which is only important for view
     viewData: {},
 
-    activeBehavior: null,
+    // backing value for activeBehavior getter / setter
+    _activeBehavior: null,
 
     getNode: function (id) {
       var model = this.activeBehavior.getNode(id);

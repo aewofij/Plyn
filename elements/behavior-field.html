@@ -122,8 +122,6 @@ require([ 'core/signals'
     controllerChanged: function () {
       var self = this;
 
-      console.log('controllerChanged');
-
       this.toolController = new BehaviorPanelToolController(this.controller);
       this.async(this.updateShape);
     },
@@ -156,7 +154,7 @@ require([ 'core/signals'
             positionCable(outEdge);
             Object.observe(node.view.position, 
                            function() { positionCable(outEdge) });
-            Object.observe(self.controller.getNode(outEdge.to.nodeId).view.position, 
+            Object.observe(self.controller.getNode(outEdge.to.node.id).view.position, 
                            function() { positionCable(outEdge) });
 
             self.fabric.add(outEdge.shape);
@@ -169,7 +167,7 @@ require([ 'core/signals'
       var outlet = 
         this.getNodeElement(edgeData.from).getOutlet();
       var inlet = 
-        this.getNodeElement(edgeData.to.nodeId).getInlet(edgeData.to.inlet);
+        this.getNodeElement(edgeData.to.node.id).getInlet(edgeData.to.inlet);
 
       var offset = {
         x: -this.getBoundingClientRect().left,

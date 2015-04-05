@@ -107,94 +107,95 @@ define([ 'core/datatypes'
      */
     connect: {
       value: function connect (from, to) {
-        var self = this;
+        ArrowNode.connect(from, to);
+        // var self = this;
 
-        // disconnect anything previously connected to `to`
-        if (to.node.inlets[to.inlet] !== null) {
-          self.disconnect(self.getNode(to.node.inlets[to.inlet]), to);
-        }
+        // // disconnect anything previously connected to `to`
+        // if (to.node.inlets[to.inlet] !== null) {
+        //   self.disconnect(self.getNode(to.node.inlets[to.inlet]), to);
+        // }
 
-        // add edges
-        // TODO: make this hash based off of edge, not node?
-        from.outlet[to.node.id] = {
-          nodeId: to.node.id,
-          inlet: to.inlet
-        };
-        to.node.inlets[to.inlet] = from.id;
+        // // add edges
+        // // TODO: make this hash based off of edge, not node?
+        // from.outlet[to.node.id] = {
+        //   nodeId: to.node.id,
+        //   inlet: to.inlet
+        // };
+        // to.node.inlets[to.inlet] = from.id;
 
-        // check (partial) input types
-        var solution = Type.solve(to.node.inlets.map(function (srcNodeId, idx) {
-          if (srcNodeId !== null) {
-            var srcNode = self.getNode(srcNodeId);
-            var srcCalcRtn = srcNode.currentTypes(srcNode.arrow.returnType);
+        // // check (partial) input types
+        // var solution = Type.solve(to.node.inlets.map(function (srcNodeId, idx) {
+        //   if (srcNodeId !== null) {
+        //     var srcNode = self.getNode(srcNodeId);
+        //     var srcCalcRtn = srcNode.currentTypes(srcNode.arrow.returnType);
 
-            var variableUnion = (function hasVariableUnion (ty) {
-              return ty.category === 'Variable' 
-                  || (ty.category === 'Union' && ty.types.some(hasVariableUnion));
-            })(srcCalcRtn);
+        //     var variableUnion = (function hasVariableUnion (ty) {
+        //       return ty.category === 'Variable' 
+        //           || (ty.category === 'Union' && ty.types.some(hasVariableUnion));
+        //     })(srcCalcRtn);
 
-            if (!variableUnion) {
-              return Type.refined(srcCalcRtn,
-                                  to.node.arrow.inputTypes[idx]);
-            } else {
-              return null;
-            }
-          } else {
-            return null;
-          }
-        }).filter(function (elm) { return elm !== null }));
+        //     if (!variableUnion) {
+        //       return Type.refined(srcCalcRtn,
+        //                           to.node.arrow.inputTypes[idx]);
+        //     } else {
+        //       return null;
+        //     }
+        //   } else {
+        //     return null;
+        //   }
+        // }).filter(function (elm) { return elm !== null }));
 
-        if (!solution.checks) {
-          // disconnect new connection, abort
-          self.disconnect(from, to);
-          return;
-        } else {
-          // set current type map for `to`'s node
-          to.node.currentTypes = solution.get;
-        }
+        // if (!solution.checks) {
+        //   // disconnect new connection, abort
+        //   self.disconnect(from, to);
+        //   return;
+        // } else {
+        //   // set current type map for `to`'s node
+        //   to.node.currentTypes = solution.get;
+        // }
 
-        // if all inlets have connections,
-        if (to.node.inlets.every(function (elm) { return elm !== null
-                                                      && self.getNode(elm).signal !== null })) {
-          // instantiate the arrow
-          // (clone in case of stateful arrow)
-          var arrowInst = ObjUtil.clone(to.node.arrow)
-                                 .plug
-                                 .apply(to.node.arrow, 
-                                        to.node.inlets.map(self.getNode, self)
-                                                      .map(_.property('signal')));
+        // // if all inlets have connections,
+        // if (to.node.inlets.every(function (elm) { return elm !== null
+        //                                               && self.getNode(elm).signal !== null })) {
+        //   // instantiate the arrow
+        //   // (clone in case of stateful arrow)
+        //   var arrowInst = ObjUtil.clone(to.node.arrow)
+        //                          .plug
+        //                          .apply(to.node.arrow, 
+        //                                 to.node.inlets.map(self.getNode, self)
+        //                                               .map(_.property('signal')));
 
-          // update `to`'s instance fields
-          // - unplug existing arrow
-          if (to.node.arrowInstance !== null) {
-            to.node.arrowInstance.unplug();
-          }
-          // - set arrow instance
-          to.node.arrowInstance = arrowInst;
-          // - update output signal
-          to.node.signal = arrowInst.signal;
+        //   // update `to`'s instance fields
+        //   // - unplug existing arrow
+        //   if (to.node.arrowInstance !== null) {
+        //     to.node.arrowInstance.unplug();
+        //   }
+        //   // - set arrow instance
+        //   to.node.arrowInstance = arrowInst;
+        //   // - update output signal
+        //   to.node.signal = arrowInst.signal;
 
-          // pull new value from ancestors
-          to.node.arrowInstance.pull();
+        //   // pull new value from ancestors
+        //   to.node.arrowInstance.pull();
 
-          // attempt to reconnect nodes previously connected to `to`'s outlet
-          //   (they'll pull the new value from `to` if they want it)
-          Object.keys(to.node.outlet).forEach(function (key) {
-            var connectedNode = {
-              node: self.getNode(to.node.outlet[key].nodeId),
-              inlet: to.node.outlet[key].inlet
-            }
-            if (Type.isRefinement(to.node.signal.type, 
-                                  connectedNode.node.arrowInstance.inputs[connectedNode.inlet].type)) {
-              self.connect(to.node, connectedNode);
-            } else {
-              // TODO: somehow notify on this?
-              // console.log('Disconnected ' + to.node.name + ' from ' + connectedNode.node.name);
-              self.disconnect(to.node, connectedNode);
-            }
-          });
+        //   // attempt to reconnect nodes previously connected to `to`'s outlet
+        //   //   (they'll pull the new value from `to` if they want it)
+        //   Object.keys(to.node.outlet).forEach(function (key) {
+        //     var connectedNode = {
+        //       node: self.getNode(to.node.outlet[key].nodeId),
+        //       inlet: to.node.outlet[key].inlet
+        //     }
+        //     if (Type.isRefinement(to.node.signal.type, 
+        //                           connectedNode.node.arrowInstance.inputs[connectedNode.inlet].type)) {
+        //       self.connect(to.node, connectedNode);
+        //     } else {
+        //       // TODO: somehow notify on this?
+        //       // console.log('Disconnected ' + to.node.name + ' from ' + connectedNode.node.name);
+        //       self.disconnect(to.node, connectedNode);
+        //     }
+        //   });
 
-        } 
+        // } 
       }
     },
 
@@ -206,13 +207,14 @@ define([ 'core/datatypes'
      */
     disconnect: {
       value: function (from, to) {
-        // remove to from from.outlet
-        delete from.outlet[to.node.id];
-        to.node.inlets[to.inlet] = null;
+        ArrowNode.disconnect(from, to);
+        // // remove to from from.outlet
+        // delete from.outlet[to.node.id];
+        // to.node.inlets[to.inlet] = null;
 
-        if (to.node.arrowInstance !== null) {
-          to.node.arrowInstance.unplug();
-        }
+        // if (to.node.arrowInstance !== null) {
+        //   to.node.arrowInstance.unplug();
+        // }
       }
     },
 
@@ -240,14 +242,13 @@ define([ 'core/datatypes'
         newNode.position = oldNode.position;
 
         // can we reuse the inputs of the old node?
-        var inputsFit = (function (existingParentIds, newTypes) {
-          if (!existingParentIds.every(function (elm) { return elm !== null })) {
+        var inputsFit = (function (existingParents, newTypes) {
+          if (!existingParents.every(function (elm) { return elm !== null })) {
             return false;
           }
 
-          var existingTypes = existingParentIds.map(self.getNode, self)
-                                               .map(ObjUtil.field('signal'))
-                                               .map(ObjUtil.field('type'));
+          var existingTypes = existingParents.map(ObjUtil.field('signal'))
+                                             .map(ObjUtil.field('type'));
 
           if (existingTypes.length === newTypes.length) {
             var solution = Type.solve(ListUtil.map2(existingTypes,
@@ -270,14 +271,13 @@ define([ 'core/datatypes'
 
         if (inputsFit.checks) {
           // try connecting with your parents
-          oldNode.inlets.map(self.getNode, self)
-                        .forEach(function (srcNode, inlet) {
+          oldNode.inlets.forEach(function (srcNode, inlet) {
             self.connect(srcNode, { node: newNode, inlet: inlet });
           });
 
           // try connecting with your children
           ObjUtil.values(oldNode.outlet).forEach(function (elm) {
-            self.connect(newNode, { node: self.getNode(elm.nodeId), inlet: elm.inlet });
+            self.connect(newNode, elm);
           });
 
           // var relRtnType = inputsFit.get(newNode.arrow.returnType);
@@ -293,7 +293,7 @@ define([ 'core/datatypes'
           // a bit weird because of first-order type variables...
           var newRtnTy = newNode.arrow.returnType;
           ObjUtil.values(oldNode.outlet).forEach(function (dstInfo) {
-            var dstNode = self.getNode(dstInfo.nodeId);
+            var dstNode = dstInfo.node;
             var variableUnion = (function hasVariableUnion (ty) {
               return ty.category === 'Variable' 
                   || (ty.category === 'Union' && ty.types.some(hasVariableUnion));

@@ -45,6 +45,7 @@ define([ 'core/signals'
 
       QUnit.test('unplugging', function (assert) {
         var add = Arrow.EventArrow('add',
+                                   [],
                                    [ Datatype.Number
                                    , Datatype.Number ],
                                    Datatype.Number,
@@ -68,6 +69,7 @@ define([ 'core/signals'
 
       QUnit.test('polymorphic arrows', function (assert) {
         var identity = Arrow.EventArrow('identity',
+                                        [],
                                         [ Datatype.Variable ('a') ],
                                         Datatype.Variable('a'),
                                         function (v) {

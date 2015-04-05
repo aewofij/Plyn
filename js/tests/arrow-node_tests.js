@@ -28,7 +28,8 @@ define([ 'core/signals'
 
           var outputNode = ArrowNode.OutputNode(outSig);
 
-          var sumNode = ArrowNode.ArrowNode(StdArrows.numberExpression(function (v1, v2) {
+          var sumNode = ArrowNode.ArrowNode(StdArrows.numberExpression()
+                                                     .setParameter('expression', function (v1, v2) {
             return v1 + v2;
           }));
 
@@ -64,7 +65,8 @@ define([ 'core/signals'
           var in3 = Signal.Signal(Type.Boolean, Data.Boolean(false));
           var in4 = Signal.Signal(Type.String, Data.String("asdfas"));
           var inputNode3 = ArrowNode.InputNode(in3);
-          var inputNode4 = ArrowNode.InputNode(in4);
+          var inputNode4 = ArrowNode.InputNode();
+          inputNode4.arrow.setParameter('signal', in4);
 
           beh.addNode(inputNode3);
           beh.addNode(inputNode4);
@@ -89,9 +91,10 @@ define([ 'core/signals'
       QUnit.test('re-plugging into polymorphic arrows', function (assert) {
         var inSig1 = Signal.Signal(Type.String, Data.String('a string'));
         var outSig1 = Signal.Signal(Type.String);
-        var inputNode1 = ArrowNode.InputNode(inSig1);
+        var inputNode1 = ArrowNode.InputNode(inSig1)
         var filterNode = ArrowNode.ArrowNode(StdArrows.filterRepeats);
-        var outputNode1 = ArrowNode.OutputNode(outSig1);
+        var outputNode1 = ArrowNode.OutputNode();
+        outputNode1.arrow.setParameter('signal', outSig1);
 
         var beh = Behavior.Behavior('otherBeh');
         beh.addNode(inputNode1)
@@ -158,11 +161,12 @@ define([ 'core/signals'
         var outSig1 = Signal.Signal(Type.Number);
         var inputNode1 = ArrowNode.InputNode(inSig1);
         var inputNode2 = ArrowNode.InputNode(inSig2);
-        var sumArrow = StdArrows.numberExpression(function (v1,v2) {
+        var sumArrow = StdArrows.numberExpression().setParameter('expression', function (v1,v2) {
           return v1 + v2;
         });
         var exprNode = ArrowNode.ArrowNode(sumArrow);
-        var numIden = ArrowNode.ArrowNode(StdArrows.numberExpression(function (v) {
+        var numIden = ArrowNode.ArrowNode(StdArrows.numberExpression()
+                                                   .setParameter('expression', function (v) {
           return v;
         }));
         var outputNode1 = ArrowNode.OutputNode(outSig1);
@@ -196,6 +200,7 @@ define([ 'core/signals'
         var exprNode2 = 
           beh.swapNode(exprNode_, 
                        ArrowNode.ArrowNode(Arrow.EventArrow('String x Number -> Number',
+                                                            [],
                                                             [ Type.String, Type.Number ],
                                                             Type.Number,
                                                             function (str, num) { return num })));
@@ -205,7 +210,7 @@ define([ 'core/signals'
         assert.equal(exprNode2.inlets[1], null);
         assert.equal(Object.keys(exprNode2.outlet).length, 1)
         assert.deepEqual(exprNode2.outlet[Object.keys(exprNode2.outlet)[0]], 
-                         { nodeId: numIden.id, inlet: 0 });
+                         { node: numIden, inlet: 0 });
 
         Signal.push(inSig1, Data.Number(100));
         assert.deepEqual(Signal.pull(outSig1), Data.Number(3));
@@ -225,6 +230,7 @@ define([ 'core/signals'
         var exprNode4 = 
           beh.swapNode(exprNode3,
                        ArrowNode.ArrowNode(Arrow.EventArrow('Number x Number -> String',
+                                                            [],
                                                             [ Type.Number, Type.Number ],
                                                             Type.String,
                                                             function (n1, n2) { 
@@ -232,8 +238,8 @@ define([ 'core/signals'
                                                             })));
 
         // sort of implementation-based, sry
-        assert.equal(exprNode4.inlets[0], inputNode1.id);
-        assert.equal(exprNode4.inlets[1], inputNode2.id); 
+        assert.equal(exprNode4.inlets[0], inputNode1);
+        assert.equal(exprNode4.inlets[1], inputNode2); 
         assert.equal(Object.keys(exprNode4.outlet).length, 0);
 
         Signal.push(inSig1, Data.Number(4));
@@ -245,22 +251,115 @@ define([ 'core/signals'
       QUnit.test('swapping for a node with union output', function (assert) {
         // node `a` with no inputs, concrete output plugged into concrete other node `b`
         var a = ArrowNode.InputNode(Signal.Signal(Type.Number));
-        var sum = NodeRegistry.makeNode('sum');
+        var sum = NodeRegistry.getNode('sum').instance.node;
 
         var beh = Behavior.Behavior('beh', [a, sum]);
 
         beh.connect(a, { node: sum, inlet: 0 });
         assert.equal(Object.keys(a.outlet).length, 1);
         assert.deepEqual(a.outlet[Object.keys(a.outlet)[0]],
-                         { nodeId: sum.id, inlet: 0 });
-        
+                         { node: sum, inlet: 0 });
+
         // swap `merge` node for `a`
-        var a2 = beh.swapNode(a, NodeRegistry.makeNode('merge'));
+        var a2 = beh.swapNode(a, NodeRegistry.getNode('merge').instance.node);
 
         // `merge` should now be connected to `b`
         assert.equal(Object.keys(a2.outlet).length, 1);
         assert.deepEqual(a2.outlet[Object.keys(a2.outlet)[0]],
-                         { nodeId: sum.id, inlet: 0 });
+                         { node: sum, inlet: 0 });
+      });
+
+      QUnit.test('setting arrow parameters', function (assert) {
+        var exprArrow = StdArrows.numberExpression();
+        var expr = ArrowNode.ArrowNode(exprArrow);
+
+        assert.equal(exprArrow.inputTypes.length, 0);
+        assert.equal(expr.inlets.length, exprArrow.inputTypes.length);
+
+        var inSig1 = Signal.Signal(Type.Number, Data.Number(-1));
+        var inSig2 = Signal.Signal(Type.Number, Data.Number(-1));
+        var outSig = Signal.Signal(Type.Number, Data.Number(-1));
+
+        var inNode1 = ArrowNode.InputNode(inSig1);
+        var inNode2 = ArrowNode.InputNode(inSig2);
+        var outNode = ArrowNode.OutputNode(outSig);
+
+        var beh = Behavior.Behavior('beh', [inNode1, inNode2, outNode]);
+        beh.connect(expr, { node: outNode, inlet: 0 });
+
+        // apparently stateful? should check tho
+        // assert.throws(function () { beh.connect(inNode1, { node: expr, inlet: 0 }) });
+
+        assert.equal(exprArrow.inputTypes.length, 0);
+        assert.equal(expr.inlets.length, exprArrow.inputTypes.length);
+
+        var done = assert.async();
+        var asyncCheck1 = function () {
+          assert.equal(exprArrow.inputTypes.length, 1);
+          assert.equal(expr.inlets.length, exprArrow.inputTypes.length);
+          done();
+        };
+        Object.observe(exprArrow.inputTypes, asyncCheck1);
+        exprArrow.setParameter('expression', function (v) {
+          return v * 2;
+        });
+        Object.unobserve(exprArrow.inputTypes, asyncCheck1);
+
+        beh.connect(inNode1, { node: expr, inlet: 0 })
+
+        Signal.push(inSig1, Data.Number(1));
+        assert.deepEqual(Signal.pull(outNode.signal), Data.Number(2));
+
+        /* I DON'T GET HOW I'M SUPPOSED TO TEST THIS
+           I THINK IT WORKS THOUGH? 
+           GD
+        */
+
+        // var done2 = assert.async();
+        // var asyncCheck2 = function () {
+        //   assert.equal(expr.inlets.length, 2);
+
+        //   assert.equal(expr.inlets[0].id, inNode1.id);
+        //   assert.deepEqual(expr.inlets[0], inNode1);
+
+        //   assert.equal(outNode.inlets[0].id, expr.id);
+        //   assert.deepEqual(outNode.inlets[0], expr);
+        //   assert.deepEqual(Signal.pull(outNode.signal), Data.Number(2));
+
+        //   beh.connect(inNode2, { node: expr, inlet: 1 });
+
+        //   Signal.push(inSig2, Data.Number(5));
+        //   assert.deepEqual(Signal.pull(outNode.signal), Data.Number(6));
+        //   done2();
+        // };
+        // Object.observe(exprArrow.inputTypes, asyncCheck2);
+        // exprArrow.setParameter('expression', function (v1, v2) {
+        //   return v1 + v2;
+        // });
+        // Object.observe(exprArrow.inputTypes, asyncCheck2);
+
+
+        // console.log('b4set');
+        // exprArrow.setParameter('expression', function (v) {
+        //   return v + 1;
+        // });
+        // console.log('afterset');
+
+        // assert.equal(expr.inlets.length, 1);
+
+        // assert.deepEqual(expr.inlets[0].id, inNode1.id);
+        // assert.deepEqual(expr.inlets[0], inNode1);
+        // assert.equal(expr.inlets[1], undefined);
+        // assert.notDeepEqual(expr.inlets[1], inNode2);
+
+        // var pulled = Signal.pull(outSig1);
+        // Signal.push(inNode2, Data.Number(2));
+        // assert.deepEqual(Signal.pull(outNode.signal), pulled);
+
+        // assert.deepEqual(Signal.pull(outNode.signal), Data.Number(6));
+
+        // Signal.push(inSig2, Data.Number(10));
+        // assert.deepEqual(Signal.pull(outNode.signal), Data.Number(11));
       });
     }
   }

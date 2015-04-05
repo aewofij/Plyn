@@ -23,16 +23,9 @@ define([ 'arrows/std-arrows'
        , 'util/objutil' ], 
        function (StdArrows, Signal, Arrow, Type, ObjUtil) {
   function ArrowNode (arrow, id) {
-    var inletList = [];
-    if (arrow !== null) {
-      for (var i = 0; i < arrow.inputTypes.length; i++) {
-        inletList[i] = null;
-      }
-    }
-
     var _id = (id === undefined) ? nextId() : id;
 
-    return Object.create(ArrowNode.prototype, {
+    var result = Object.create(ArrowNode.prototype, {
       id: {
         enumerable: true,
         writable: false,
@@ -68,7 +61,7 @@ define([ 'arrows/std-arrows'
       inlets: {
         enumerable: true,
         writable: true,
-        value: inletList
+        value: []
       },
 
       /* outlet: [{ node: <ArrowNode>, inlet: <inlet number> }]
@@ -101,6 +94,21 @@ define([ 'arrows/std-arrows'
         value: Type.solve([]).get
       }
     });
+
+    if (arrow !== null) {
+      var createInlets = function (node, _, inputTypes) {
+        var inputTypes = node.arrow.inputTypes;
+        var inletList = [];
+        for (var i = 0; i < inputTypes.length; i++) {
+          inletList[i] = node.inlets[i] === undefined ? null : node.inlets[i];
+        }
+        node.inlets = inletList;
+      }
+      createInlets.call(null, result, null, arrow.inputTypes);
+      Array.observe(arrow.inputTypes, _.partial(createInlets, result));
+    }
+
+    return result;
   }
 
   ArrowNode.prototype = Object.create(Object.prototype, {
@@ -131,8 +139,8 @@ define([ 'arrows/std-arrows'
       value: null
     },
 
-    /* inlets : [<String>]
-     * Connections to this node's inputs, expressed as the connected nodes' identifiers.
+    /* inlets : [ArrowNode]
+     * Connections to this node's inputs, expressed as the connected nodes.
      * There can be at most one connection per inlet; thus, each element of this
      *   list corresponds to an inlet.
      */
@@ -142,8 +150,8 @@ define([ 'arrows/std-arrows'
       value: []
     },
 
-    /* outlet : [{ node: <String>, inlet: <inlet number> }]
-     * Connections to this node's output, with connected node's ID and inlet of that node.
+    /* outlet: [{ node: <ArrowNode>, inlet: <inlet number> }]
+     * Connections to this node's output, with connected node and inlet of that node.
      * There can be any number of connections per outlet; thus, each element of this
      *   list corresponds to one such connection.
      */
@@ -171,24 +179,14 @@ define([ 'arrows/std-arrows'
       writable: true,
       value: function (ty) { return undefined }
     },
-
-    setParameter: {
-      enumerable: true,
-      value: function (paramId, newValue) {
-        // set inner parameter
-        this.arrow.setParameter(paramId, newValue);
-
-        // plug new instance
-        var newInst = this.arrow.plug(this.inlets)
-
-        // set my instance to new instance
-      }
-    }
   });
 
   function InputNode (inputSig) {
     var id = nextId();
-    var outArrow = Arrow.OutputArrow(inputSig);
+    var outArrow = Arrow.OutputArrow();
+    if (inputSig !== undefined) {
+      outArrow.setParameter('signal', inputSig);
+    }
     var arrowInst = outArrow.plug();
 
     return Object.create(ArrowNode.prototype, {
@@ -272,7 +270,119 @@ define([ 'arrows/std-arrows'
   }
 
   function OutputNode (outputSig) {
-    return ArrowNode(StdArrows.pushTo(outputSig));
+    var arrow = StdArrows.pushTo();
+    if (outputSig !== undefined) {
+      arrow.setParameter('signal', outputSig);
+    }
+    return ArrowNode(arrow);
+  }
+
+  /* Connects a node's outlet to a specific inlet of another node.
+   *
+   * from : ArrowNode
+   * to   : { node: ArrowNode, inlet: int }
+   */
+  function connect (from, to) {
+    var self = this;
+
+    // disconnect anything previously connected to `to`
+    if (to.node.inlets[to.inlet] !== null 
+        && to.node.inlets[to.inlet] !== undefined) {
+
+      self.disconnect(to.node.inlets[to.inlet], to);
+    }
+
+    // add edges
+    // TODO: make this hash based off of edge, not node?
+    //       connecting multiple outlets of node A to node B will not work
+    from.outlet[to.node.id] = to;
+    to.node.inlets[to.inlet] = from;
+
+    // check (partial) input types
+    var solution = Type.solve(to.node.inlets.map(function (srcNode, idx) {
+      if (srcNode !== null) {
+        var srcCalcRtn = srcNode.currentTypes(srcNode.arrow.returnType);
+
+        var variableUnion = (function hasVariableUnion (ty) {
+          return ty.category === 'Variable' 
+             || (ty.category === 'Union' && ty.types.some(hasVariableUnion));
+        })(srcCalcRtn);
+
+        if (!variableUnion) {
+          return Type.refined(srcCalcRtn,
+                              to.node.arrow.inputTypes[idx]);
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }).filter(function (elm) { return elm !== null }));
+
+    if (!solution.checks) {
+      // disconnect new connection, abort
+      self.disconnect(from, to);
+      return;
+    } else {
+      // set current type map for `to`'s node
+      to.node.currentTypes = solution.get;
+    }
+
+    // if all inlets have connections,
+    if (to.node.inlets.every(function (elm) { return elm !== null
+                                                  && elm.signal !== null })) {
+      // instantiate the arrow
+      // (clone in case of stateful arrow)
+      var arrowInst = ObjUtil.clone(to.node.arrow)
+                             .plug
+                             .apply(to.node.arrow, 
+                                    to.node.inlets.map(_.property('signal')));
+
+      // update `to`'s instance fields
+      // - unplug existing arrow
+      if (to.node.arrowInstance !== null) {
+        to.node.arrowInstance.unplug();
+      }
+      // - set arrow instance
+      to.node.arrowInstance = arrowInst;
+      // - update output signal
+      to.node.signal = arrowInst.signal;
+
+      // pull new value from ancestors
+      to.node.arrowInstance.pull();
+
+      // attempt to reconnect nodes previously connected to `to`'s outlet
+      //   (they'll pull the new value from `to` if they want it)
+      _.values(to.node.outlet).forEach(function (connectedNode) {
+        var getType = connectedNode.node.currentTypes;
+        if (Type.isRefinement(to.node.signal.type, 
+                              getType(connectedNode.node.arrow.inputTypes[connectedNode.inlet]))) {
+                              // connectedNode.node.arrowInstance.inputs[connectedNode.inlet].type)) {
+          self.connect(to.node, connectedNode);
+        } else {
+          // TODO: somehow notify on this?
+          // console.log('Disconnected ' + to.node.name + ' from ' + connectedNode.node.name);
+          self.disconnect(to.node, connectedNode);
+        }
+      });
+
+    } 
+  }
+
+  /* Removes the specified connection from the graph.
+   *
+   * from : the `ArrowNode` whose outlet is part of the connection
+   * to   : the `ArrowNode` and inlet index of the other end of the connection,
+   *          in the form `{ node: <ArrowNode>, inlet: <Integer> }`
+   */
+  function disconnect (from, to) {
+    // remove to from from.outlet
+    delete from.outlet[to.node.id];
+    to.node.inlets[to.inlet] = null;
+
+    if (to.node.arrowInstance !== null) {
+      to.node.arrowInstance.unplug();
+    }
   }
 
   // /*
@@ -388,8 +498,8 @@ define([ 'arrows/std-arrows'
     ArrowNode: ArrowNode,
     InputNode: InputNode,
     OutputNode: OutputNode,
-    // connect: connect,
-    // disconnect: disconnect,
+    connect: connect,
+    disconnect: disconnect,
     // sparseView: sparseView
   }
 });

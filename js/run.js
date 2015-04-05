@@ -25,34 +25,43 @@ define([ 'core/signals'
                       Vector2, ObjUtil, Physics ) {
   var scene = new Scene.Scene();
   obj = scene.addObject('Box object');
-  scene.addObject('Circle object');
+  circle = scene.addObject('Circle object');
 
   var geom = new Geometry(obj);
   var maus = new Mouse(obj);
   var xform = new Transform(obj);
   var time = new Time(obj);
 
+
+
+  // ------- START MOVE BOX BEHAVIOR ------- //
+
   var moveBoxBehavior = Behavior.Behavior('Move box');
   scene.addBehavior(moveBoxBehavior);
 
   var timeInputNode = ArrowNode.InputNode(time.signals.Time.current);
-  var scaleAndWrap = ArrowNode.ArrowNode(StdArrows.numberExpression (function (v) {
+  var scaleAndWrap = ArrowNode.ArrowNode(StdArrows.numberExpression().setParameter('expression', function (v) {
     return (v / 100.0) % (6.282 * 100);
   }));
-  var sinu = ArrowNode.ArrowNode(StdArrows.numberExpression (function (v) {
+  var sinu = ArrowNode.ArrowNode(StdArrows.numberExpression().setParameter('expression', function (v) {
     // return Math.sin(v) * 300;
     return 0;
   }));
 
   var mergeNode = ArrowNode.ArrowNode(StdArrows.merge);
-  var justVectors = ArrowNode.ArrowNode(StdArrows.matchType(Vector2.type, Vector2.Vector2 (Data.Number (0)) (Data.Number (0))));
-  var justNumbers = ArrowNode.ArrowNode(StdArrows.matchType(Datatype.Number, Data.Number (0)));
+  var justVectors = ArrowNode.ArrowNode(StdArrows.matchType()
+                                                 .setParameter('type', Vector2.type)
+                                                 .setParameter('defaultValue', Vector2.Vector2 (Data.Number (0)) 
+                                                                                               (Data.Number (0))));
+  var justNumbers = ArrowNode.ArrowNode(StdArrows.matchType()
+                                                 .setParameter('type', Datatype.Number)
+                                                 .setParameter('defaultValue', Data.Number (0)));
 
-  var getX = ArrowNode.ArrowNode(StdArrows.fieldAccess('x'));
-  var getY = ArrowNode.ArrowNode(StdArrows.fieldAccess('y'));
+  var getX = ArrowNode.ArrowNode(StdArrows.fieldAccess().setParameter('field id', 'x'));
+  var getY = ArrowNode.ArrowNode(StdArrows.fieldAccess().setParameter('field id', 'y'));
 
-  var buildVec = ArrowNode.ArrowNode(StdArrows.buildRecord(Vector2.type));
-  var sum = ArrowNode.ArrowNode(StdArrows.numberExpression(function (v1, v2) { 
+  var buildVec = ArrowNode.ArrowNode(StdArrows.buildRecord().setParameter('record type', Vector2.type));
+  var sum = ArrowNode.ArrowNode(StdArrows.numberExpression().setParameter('expression', function (v1, v2) { 
     return v1 + v2;
   }));
 
@@ -97,42 +106,104 @@ define([ 'core/signals'
 
   moveBoxBehavior.connect(buildVec, { node: outputPosition, inlet: 0 }); 
 
+  // ------- END MOVE BOX BEHAVIOR ------- //
+
+
+
   var countMouseBehavior = Behavior.Behavior('Count mouse presses');
   scene.addBehavior(countMouseBehavior);
 
-  var foldSum = ArrowNode.ArrowNode(StdArrows.foldp(Data.Number(0), Datatype.Number, function (v, acc) {
-    return Data.Number (v.val + acc.val);
-  }));
-  var boolToNum = ArrowNode.ArrowNode(Arrow.EventArrow('boolToNum', [ Datatype.Boolean ], Datatype.Number, function (v) {
-    if (v.val) {
-      return Data.Number (1);
-    } else {
-      return Data.Number (0);
-    }
-  }));
-  var filterRepeats = ArrowNode.ArrowNode(StdArrows.filterRepeats);
-  var mouseDownInput = ArrowNode.InputNode(maus.signals.Mouse.down);
-  var mouseCountSig = Signal.Signal(Datatype.Number);
-  var mouseCount = ArrowNode.OutputNode(mouseCountSig);
+  // var foldSum = ArrowNode.ArrowNode(StdArrows.foldp()
+  //                                            .setParameter('initialState', Data.Number(0)) 
+  //                                            .setParameter('returnType', Datatype.Number) 
+  //                                            .setParameter('transitionFunction', function (v, acc) {
+  //                                                                return Data.Number (v.val + acc.val);
+  //                                                              }));
+  // var boolToNum = ArrowNode.ArrowNode(Arrow.EventArrow('boolToNum', [], [ Datatype.Boolean ], Datatype.Number, function (v) {
+  //   if (v.val) {
+  //     return Data.Number (1);
+  //   } else {
+  //     return Data.Number (0);
+  //   }
+  // }));
+  // var filterRepeats = ArrowNode.ArrowNode(StdArrows.filterRepeats);
+  // var mouseDownInput = ArrowNode.InputNode(maus.signals.Mouse.down);
+  // var mouseCountSig = Signal.Signal(Datatype.Number);
+  // var mouseCount = ArrowNode.OutputNode(mouseCountSig);
 
-  countMouseBehavior.addNode(foldSum);
-  countMouseBehavior.addNode(boolToNum);
-  countMouseBehavior.addNode(filterRepeats);
-  countMouseBehavior.addNode(mouseDownInput);
-  countMouseBehavior.addNode(mouseCount);
+  // countMouseBehavior.addNode(foldSum);
+  // countMouseBehavior.addNode(boolToNum);
+  // countMouseBehavior.addNode(filterRepeats);
+  // countMouseBehavior.addNode(mouseDownInput);
+  // countMouseBehavior.addNode(mouseCount);
 
-  Signal.subscribe(mouseCountSig, function (v) {
-    console.log('Mouse clicked ' + v.val + ' times');
-  });
+  // Signal.subscribe(mouseCountSig, function (v) {
+  //   console.log('Mouse clicked ' + v.val + ' times');
+  // });
 
-  countMouseBehavior.connect(mouseDownInput, { node: boolToNum, inlet: 0 });
-  countMouseBehavior.connect(boolToNum, { node: foldSum, inlet: 0 });
-  countMouseBehavior.connect(foldSum, { node: filterRepeats, inlet: 0 });
-  countMouseBehavior.connect(filterRepeats, { node: mouseCount, inlet: 0 });
+  // countMouseBehavior.connect(mouseDownInput, { node: boolToNum, inlet: 0 });
+  // countMouseBehavior.connect(boolToNum, { node: foldSum, inlet: 0 });
+  // countMouseBehavior.connect(foldSum, { node: filterRepeats, inlet: 0 });
+  // countMouseBehavior.connect(filterRepeats, { node: mouseCount, inlet: 0 });
 
-  var accessX = StdArrows.fieldAccess('x').plug(maus.signals.Mouse.position);
+  var accessX = StdArrows.fieldAccess().setParameter('field id', 'x').plug(maus.signals.Mouse.position);
   var simpleBehavior = Behavior.Behavior('Simple', [ ArrowNode.InputNode(accessX.signal) ]);
   scene.addBehavior(simpleBehavior);
+
+
+
+
+  // ------- START RECURSIVE BEHAVIOR ------- //
+
+  /*
+
+  var recursive = Behavior.Behavior('Recursive nudge');
+  scene.addBehavior(recursive);
+
+  var mouseInput2 = ArrowNode.InputNode(maus.signals.Mouse.position);
+  var positionInput = ArrowNode.InputNode(xform.signals.Transform.position);
+  var positionOutput2 = ArrowNode.OutputNode(xform.signals.Transform.position);
+
+  var vecDiffArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+    return {
+      x: vec2.x - vec1.x,
+      y: vec2.y - vec1.y
+    };
+  });
+  var vecDiff = ArrowNode.ArrowNode(vecDiffArrow);
+
+  var vecScaleArrow = StdArrows.vectorExpression().setParameter('expression', function (vec) {
+    return {
+      x: vec.x * 0.6,
+      y: vec.y * 0.6
+    };
+  });
+  var vecScale = ArrowNode.ArrowNode(vecScaleArrow);
+
+  var vecAddArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+    return {
+      x: vec2.x + vec1.x,
+      y: vec2.y + vec1.y
+    };
+  });
+  var vecAdd = ArrowNode.ArrowNode(vecAddArrow);
+
+  recursive.addNode(mouseInput2)
+           .addNode(positionInput)
+           .addNode(positionOutput2)
+           .addNode(vecDiff)
+           .addNode(vecScale)
+           .addNode(vecAdd);
+
+  recursive.connect(positionInput, {node: vecDiff, inlet: 0});
+  recursive.connect(mouseInput2, {node: vecDiff, inlet: 1});
+  recursive.connect(vecDiff, {node: vecScale, inlet: 0});
+  recursive.connect(vecScale, {node: vecAdd, inlet: 0});
+  recursive.connect(mouseInput2, {node: vecAdd, inlet: 1});
+  recursive.connect(vecAdd, {node: positionOutput2, inlet: 0});
+  
+  */
+
 
   // come back to this...
   // var srl = JSON.stringify(Scene.serialize(scene));

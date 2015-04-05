@@ -27,7 +27,8 @@
     "bacon": "~0.7.53",
     "physicsjs": "~0.7.0",
     "fabric": "~1.4.13",
-    "underscore": "~1.8.2"
+    "underscore": "~1.8.2",
+    "paper-tabs": "Polymer/paper-tabs#~0.5.5"
   },
   "devDependencies": {
     "qunit": "~1.17.1"

@@ -41,9 +41,10 @@ define([ 'core/datatypes'
       }
     , { kind: 'sum'
       , construct: function () {
-          return ArrowNode.ArrowNode(StdArrows.numberExpression(function (v1,v2) {
-            return v1 + v2;
-          }));
+          return ArrowNode.ArrowNode(StdArrows.numberExpression()
+                                              .setParameter('expression', function (v1,v2) {
+                                                                            return v1 + v2;
+                                                                          }));
         }
       , parameters: []
       }
@@ -55,13 +56,15 @@ define([ 'core/datatypes'
       }
     , { kind: 'match number'
       , construct: function () {
-          return ArrowNode.ArrowNode(StdArrows.matchType(Type.Number));
+          return ArrowNode.ArrowNode(StdArrows.matchType()
+                                              .setParameter('type', Type.Number));
         }
       , parameters: []
       }
     , { kind: 'match vector'
       , construct: function () {
-          return ArrowNode.ArrowNode(StdArrows.matchType(Vector2.type));
+          return ArrowNode.ArrowNode(StdArrows.matchType()
+                                              .setParameter('type', Vector2.type));
         }
       , parameters: []
       }
