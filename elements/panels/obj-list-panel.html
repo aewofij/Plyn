@@ -13,22 +13,34 @@
       #hierarchy {
         /*padding-top: 50px;*/
       }
+      #scope {
+        display: inline-block;
+        width: 100%;
+      }
     </style>
-    <div center-justified horizontal layout>
-      <core-icon-button 
-        id="addButton" 
-        icon="add"
-        on-tap="{{addObject}}">
-      </core-icon-button>
+    <div vertical layout>
+      <div center-justified horizontal layout>
+        <core-icon-button 
+          id="addButton"
+          icon="add"
+          on-tap="{{addObject}}">
+        </core-icon-button>
+      </div>
+      <hierarchy-list id="hierarchy" 
+        objects="{{controller.allObjects}}"
+        on-add-component="{{addComponent}}"
+        on-inspect-signal="{{inspect}}">
+      </hierarchy-list>
+      <signal-scope id="scope"></signal-scope>
     </div>
-    <hierarchy-list id="hierarchy" 
-      objects="{{controller.allObjects}}"
-      on-add-component="{{addComponent}}">
-    </hierarchy-list>
   </template>
   <script>
     Polymer({
       controller: null,
+
+      attached: function () {
+        this.$.scope.dimensionsChanged();
+      },
 
       addObject: function (evt) {
         this.controller.addObject();
@@ -36,6 +48,16 @@
 
       addComponent: function (evt, dtl, sndr) {
         this.controller.addComponent(dtl.construct, dtl.onObj)
+      },
+
+      inspect: function (evt, dtl, sndr) {
+        this.$.scope.disconnectSignal(true);
+        this.$.scope.connectSignal(dtl.signal, true);
+
+        var actualStyle = window.getComputedStyle(this.$.scope, null);
+        this.$.scope.style.height = actualStyle['width'];
+
+        this.$.scope.dimensionsChanged();
       }
     });
   </script>

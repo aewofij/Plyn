@@ -84,7 +84,11 @@
             <template repeat="{{property in viewProperties(component.model)}}">
               <div class="propertyEntry" horizontal layout center>
                 <span flex>{{property.name}}</span>
-                <core-icon-button class="inspectButton" icon="visibility"></core-icon-button>
+                <core-icon-button 
+                  class="inspectButton" 
+                  icon="visibility"
+                  on-tap="{{inspectSignal}}">
+                </core-icon-button>
               </div>
             </template>
           </core-collapse>
@@ -120,7 +124,8 @@ require([ 'core/component-registry'
       return _.map(_.keys(ofComp.signals[ofComp.componentType]), function (sigKey) {
         return {
           name: sigKey,
-          type: ofComp.signals[ofComp.componentType][sigKey].type
+          type: ofComp.signals[ofComp.componentType][sigKey].type,
+          model: ofComp.signals[ofComp.componentType][sigKey]
         };
       });
     },
@@ -136,6 +141,12 @@ require([ 'core/component-registry'
       this.fire('add-component', {
         construct: dtl.item.construct, 
         onObj: evt.target.templateInstance.model.obj.model
+      });
+    },
+
+    inspectSignal: function (evt,dtl,sndr) {
+      this.fire('inspect-signal', {
+        signal: evt.target.templateInstance.model.property.model
       });
     },
 

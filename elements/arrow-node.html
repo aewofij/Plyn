@@ -38,7 +38,7 @@
       }
 
       #card {
-        border-radius: 10px;
+        border-radius: 5px;
         background-color: white;
         padding: 5px 5px;
         min-width: 80px;
@@ -145,8 +145,7 @@
           </core-icon>
         </div>
 
-        <signal-scope id="scope">
-        </signal-scope>
+        <signal-scope id="scope"></signal-scope>
       </core-pages>
       <div id="outlets" horizontal center-justified layout>
         <div id="outlet"
@@ -416,21 +415,10 @@
             // TODO: publish and control in behavior-field
             window.addEventListener('keydown', function (evt) {
               if (evt.keyIdentifier === "Shift") {
-                // make sure that we unplugged things
-                if (self.unsub !== null) {
-                  self.unsub();
-                  self.unsub = null;
-                }
-
-                // plug signals into scopes
-                self.unsub = self.node.view.subscribe(function (v) {
-                  if (Type.isRefinement(v.type, Type.Number)) {
-                    self.$.scope.signal = v.val;
-                  }
-                });
+                self.$.scope.connectSignal(self.node.model.signal, true);
 
                 // start drawing on scope
-                self.$.scope.isDrawing = true;
+                // self.$.scope.isDrawing = true;
 
                 // switch pages
                 self.$.scopeToggle.selected = "scope";
@@ -444,13 +432,8 @@
                 self.$.scopeToggle.selected = "kindBox";
 
                 // stop drawing on scope
-                self.$.scope.isDrawing = false;
-
-                // unplug signals
-                if (self.unsub !== null) {
-                  self.unsub();
-                  self.unsub = null;
-                }
+                // self.$.scope.isDrawing = false;
+                self.$.scope.disconnectSignal(true);
               }
             });
 

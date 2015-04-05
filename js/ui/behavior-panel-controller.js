@@ -232,30 +232,18 @@ define([ 'underscore', 'core/signals', 'core/behavior/behavior' ],
       return this.controller.isNodeInSelection(this.id);
     },
 
-    /* Convenience method for subscribing to this node's output signal.
-     *
-     * callback : function to be called with the signal's new value
-     * returns  : unsubscribe function
-     */
-    subscribe: function (callback) {
-      var outSig = this.controller.getNode(this.id).model.signal;
-      if (outSig !== null) {
-        return Signal.subscribe(outSig, callback);
-      } else {
-        return function () { return };
-      }
-    },
-
-    // getInletPosition: function (index) {
-    //   // TODO
-    // },
-
-    // getOutletPosition: function () {
-    //   // TODO
-    // },
-
-    // getBounds: function () {
-    //   // TODO
+    // /* Convenience method for subscribing to this node's output signal.
+    //  *
+    //  * callback : function to be called with the signal's new value
+    //  * returns  : unsubscribe function
+    //  */
+    // subscribe: function (callback) {
+    //   var outSig = this.controller.getNode(this.id).model.signal;
+    //   if (outSig !== null) {
+    //     return Signal.subscribe(outSig, callback);
+    //   } else {
+    //     return function () { return };
+    //   }
     // },
   }
 

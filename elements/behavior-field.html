@@ -143,7 +143,6 @@ require([ 'core/signals'
       //   some DOM manipulation; so wrapping in an async for that
       this.async(function () {
         var self = this;
-        console.log('updateCableShapes');
 
         _.each(this.controller.activeEdges, function (edge) {
           _.each(edge.from.view.outgoing, function (outEdge) {
