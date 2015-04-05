@@ -75,6 +75,7 @@
             on-down="{{transitionPositionMode}}"
             on-mouseup="{{transitionPositionMode}}"
             on-node-selected="{{didSelectNode}}"
+            on-node-edit="{{didEditNode}}"
             on-inlet-selected="{{beginPatchingInlet}}"
             on-outlet-selected="{{beginPatchingOutlet}}">
           </arrow-node>
@@ -99,7 +100,8 @@ require([ 'core/signals'
     idle: 'idle', 
     patching: 'patching',
     positionNode: 'positionNode',
-    addNode: 'addNode'
+    addNode: 'addNode',
+    editNode: 'editNode'
   };
 
   var kDoubleTapTime = 500;
@@ -113,109 +115,83 @@ require([ 'core/signals'
     },
 
     observe: {
-      'controller.activeNodes.length': 'controllerChanged'
+      'controller.activeNodes': 'contentsChanged',
+      'controller.activeEdges': 'updateCableShapes',
+      'state.mode': 'modeChanged'
+    },
+
+    modeChanged: function () {
+      console.log('mode is now', this.state.mode);
     },
 
     // ----- Properties and change watchers ----- //
 
     controller: null,
-    controllerChanged: function () {
+
+    toolController: null,
+
+    // TODO: this is getting called way too often. what do?
+    contentsChanged: function () {
+      // console.log('contentsChanged');
       var self = this;
 
       this.toolController = new BehaviorPanelToolController(this.controller);
-      this.async(this.updateShape);
+      // this.updateCableShapes;
     },
-    updateShape: function () {
-      var self = this;
-      _.each(this.controller.activeNodes, function (node) {
-        _.each(node.view.outgoing, function (outEdge) {
-          if (outEdge['shape'] === undefined) {
-            // set shape
-            outEdge['shape'] = new Fabric.Path('M 0 0 C 0 0 0 0 0 0', 
-                                               {fill:'', stroke:'black'});
-            var positionCable = function (edgeData) {
-              var curve = self.makePatchCableCurve(edgeData);
+    updateCableShapes: function () {
+      // we're almost always going to be calling this right after
+      //   some DOM manipulation; so wrapping in an async for that
+      this.async(function () {
+        var self = this;
+        console.log('updateCableShapes');
 
-              edgeData.shape.path[0][1] = curve.startPoint.x;
-              edgeData.shape.path[0][2] = curve.startPoint.y;
+        _.each(this.controller.activeEdges, function (edge) {
+          _.each(edge.from.view.outgoing, function (outEdge) {
+            var viewData = edge.from.view;
+            if (viewData.cableShapes[outEdge.id] === undefined) {
+              // set shape
+              viewData.cableShapes[outEdge.id] = {};
+              viewData.cableShapes[outEdge.id]['fabricObj'] = 
+                new Fabric.Path('M 0 0 C 0 0 0 0 0 0', 
+                                {fill:'', stroke:'black'});
+              var positionCable = _.partial(function (edgeData, shape) {
+                var curve = self.makePatchCableCurve(edgeData);
 
-              edgeData.shape.path[1][1] = curve.ctrlPt1.x;
-              edgeData.shape.path[1][2] = curve.ctrlPt1.y;
+                shape.fabricObj.path[0][1] = curve.startPoint.x;
+                shape.fabricObj.path[0][2] = curve.startPoint.y;
 
-              edgeData.shape.path[1][3] = curve.ctrlPt2.x;
-              edgeData.shape.path[1][4] = curve.ctrlPt2.y;
+                shape.fabricObj.path[1][1] = curve.ctrlPt1.x;
+                shape.fabricObj.path[1][2] = curve.ctrlPt1.y;
 
-              edgeData.shape.path[1][5] = curve.endPoint.x;
-              edgeData.shape.path[1][6] = curve.endPoint.y;
+                shape.fabricObj.path[1][3] = curve.ctrlPt2.x;
+                shape.fabricObj.path[1][4] = curve.ctrlPt2.y;
 
-              self.fabric.renderAll();
+                shape.fabricObj.path[1][5] = curve.endPoint.x;
+                shape.fabricObj.path[1][6] = curve.endPoint.y;
+
+                self.fabric.renderAll();
+              }, outEdge, viewData.cableShapes[outEdge.id]);
+
+              positionCable();
+
+              var toViewData = self.controller.getNode(outEdge.to.nodeId).view;
+              Object.observe(viewData.position, 
+                             positionCable);
+              Object.observe(toViewData.position, 
+                             positionCable);
+
+              // call to unsubscribe from connected object positions
+              viewData.cableShapes[outEdge.id]['unsubscribe'] = function () {
+                Object.unobserve(viewData.position, positionCable);
+                Object.unobserve(toViewData.position, positionCable);
+              };
+
+              self.fabric.add(viewData.cableShapes[outEdge.id].fabricObj);
             }
-
-            positionCable(outEdge);
-            Object.observe(node.view.position, 
-                           function() { positionCable(outEdge) });
-            Object.observe(self.controller.getNode(outEdge.to.node.id).view.position, 
-                           function() { positionCable(outEdge) });
-
-            self.fabric.add(outEdge.shape);
-          }
-        })
-      });
+          })
+        });
+      })
     },
-
-    makePatchCableCurve: function (edgeData) {
-      var outlet = 
-        this.getNodeElement(edgeData.from).getOutlet();
-      var inlet = 
-        this.getNodeElement(edgeData.to.node.id).getInlet(edgeData.to.inlet);
-
-      var offset = {
-        x: -this.getBoundingClientRect().left,
-        y: -this.getBoundingClientRect().top,
-      }
-
-      var fromRect = outlet.getBoundingClientRect();
-      var toRect = inlet.getBoundingClientRect();
-
-      var startPoint = {
-        x: offset.x + fromRect.left + fromRect.width / 2, 
-        y: offset.y + fromRect.top + fromRect.height / 2 + 10
-      };
-
-      var endPoint = {
-        x: offset.x + toRect.left + toRect.width / 2, 
-        y: offset.y + toRect.top + toRect.height / 2 - 10
-      };
-
-      return this.makeCurve(startPoint, endPoint);
-    },
-
-    makeCurve: function (startPoint, endPoint) {
-      var flowDirection = { x: 0, y: 1 };
-      var smoothness = .4;
-
-      var bend = smoothness * ((startPoint.x - endPoint.x) * flowDirection.x 
-                            + ((startPoint.y - endPoint.y) * flowDirection.y));
-
-      var ctrlPt1 = {
-        x: startPoint.x + flowDirection.x * -bend,
-        y: startPoint.y + flowDirection.y * -bend
-      };
-
-      var ctrlPt2 = {
-        x: endPoint.x + flowDirection.x * bend,
-        y: endPoint.y + flowDirection.y * bend
-      };
-
-      return {
-        startPoint: startPoint,
-        endPoint: endPoint,
-        ctrlPt1: ctrlPt1,
-        ctrlPt2: ctrlPt2
-      };
-    },
-
-    toolController: null,
 
     nodeRegistry: NodeRegistry.all,
 
@@ -268,13 +244,13 @@ require([ 'core/signals'
 
     tracking: function (evt) {
       if (this.state.mode === Mode.idle) {
-        pan({ x: evt.ddx, y: ddy });
+        this.pan({ x: evt.ddx, y: ddy });
       } 
       else if (this.state.mode === Mode.positionNode) {
         // this.toolController.movePositionNodes({x: evt.clientX, y: evt.clientY});
       } 
       else if (this.state.mode === Mode.patching) {
-        updateActivePatch(evt);
+        this.updateActivePatch(evt);
       }
     },
 
@@ -297,11 +273,6 @@ require([ 'core/signals'
       this.setupAddNodeMenu();
     },
 
-    // ----- IDLE ----- //
-
-    pan: function (evt) {
-      // body...
-    },
 
     // ----- PATCHING ----- //
 
@@ -309,7 +280,7 @@ require([ 'core/signals'
       if (this.state.mode === Mode.idle || this.state.mode === Mode.positionNode) {
         this.toolController.beginPatching({ 
           to: { 
-            node: evt.detail.node.id, 
+            nodeId: evt.detail.node.id, 
             inlet: parseInt(evt.detail.sender.getAttribute('index'))
           }
         });
@@ -333,16 +304,22 @@ require([ 'core/signals'
         var target = evt.relatedTarget.getAttribute('node-id');
         var inlet = evt.relatedTarget.getAttribute('index');
 
-        this.toolController.endPatching(inlet == null ? { from: target } 
-                                                 : { to: { node: target
-                                                         , inlet: inlet } });
+        var endPt = {};
+        if (inlet != null) {
+          endPt = { to: { nodeId: target
+                        , inlet:  inlet } };
+        } else if (target != null) {
+          endPt = { from: target };
+        }
 
+        this.toolController.endPatching(endPt);
         this.state.mode = Mode.idle;
       }
     },
 
     updateActivePatch: function (evt) {
       // TODO
+      console.log('updateActivePatch');
     },
 
     // ----- ADD NODE ----- //
@@ -368,24 +345,28 @@ require([ 'core/signals'
       }
       var doubleTapTimeoutId = 0;
       self.$.field.addEventListener('down', function (evt) {
-        var clientBounds = evt.path[0].getBoundingClientRect();
+        if (self.state.mode === Mode.idle) {
+          var clientBounds = evt.path[0].getBoundingClientRect();
 
-        if (waitingForDblTap) {
-          didDblTap({ x: evt.x - clientBounds.left
-                    , y: evt.y - clientBounds.top });
-          waitingForDblTap = false;
-        } else {
-          waitingForDblTap = true;
-          doubleTapTimeoutId = window.setTimeout(didNotDblTap, kDoubleTapTime);
+          if (waitingForDblTap) {
+            didDblTap({ x: evt.x - clientBounds.left
+                      , y: evt.y - clientBounds.top });
+            waitingForDblTap = false;
+          } else {
+            waitingForDblTap = true;
+            doubleTapTimeoutId = window.setTimeout(didNotDblTap, kDoubleTapTime);
+          }
         }
       });
 
       function didDblTap (at) {
-        self.state.mode = Mode.addNode;
+        if (self.state.mode === Mode.idle) {
+          self.state.mode = Mode.addNode;
 
-        self.$.picker.style.display = 'block';
-        self.$.picker.style.left = at.x + "px";
-        self.$.picker.style.top  = at.y + "px";
+          self.$.picker.style.display = 'block';
+          self.$.picker.style.left = at.x + "px";
+          self.$.picker.style.top  = at.y + "px";
+        }
       }
 
       self.$.field.addEventListener('up', function (evt) {
@@ -400,15 +381,16 @@ require([ 'core/signals'
     // ----- POSITION NODE ----- //
 
     transitionPositionMode: function (evt) {
-      if (evt.type == 'down') {
-        this.state.startedPositioning = true;
-      } else if (evt.type == 'mouseup') {
-        this.state.startedPositioning = false;
-      }
+      // if (evt.type == 'down') {
+      //   this.state.startedPositioning = true;
+      // } else if (evt.type == 'mouseup') {
+      //   this.state.startedPositioning = false;
+      // }
     },
 
     positionNode: function (evt) {
-      if (this.state.startedPositioning) {
+      // if (this.state.startedPositioning) {
+      if (this.state.mode === Mode.positionNode) {
         // console.log('positionNode', evt);
         this.toolController.movePositionNodes({x: evt.clientX, y: evt.clientY});
       }
@@ -416,32 +398,62 @@ require([ 'core/signals'
 
     // TODO: refine this behavior
     didSelectNode: function (evt) {
-      var selectedNode = evt.detail.sender.node;
+      if (this.state.mode === Mode.idle
+          || this.state.mode === Mode.positionNode) {
+        var selectedNode = evt.detail.sender.node;
+        var wasAlreadySelected = selectedNode.view.isSelected;
 
-      if (evt.detail.isDown) {
-        // if the selected node is in the selection group, 
-        if (selectedNode.view.isSelected) {
-          if (!this.state.shiftFn) {
-            // TODO: maybe edit here?
-            this.controller.clearSelection();
+        if (evt.detail.isDown) {
+          // if the selected node is in the selection group, 
+          if (wasAlreadySelected) {
+            if (!this.state.shiftFn) {
+              var nodeElm = this.getNodeElement(selectedNode.model.id);
+              if (!nodeElm.isEditing) {
+                // TODO: maybe edit here?
+                this.controller.clearSelection();
+                this.controller.addNodesToSelection([selectedNode]);
+                
+                this.async(function () {
+                  var nodeElm = this.getNodeElement(selectedNode.model.id);
+                  nodeElm.wantsEdit();
+                });
+              }
+            }
+          } else {
+            // otherwise, set selection group to this node
+            // if shift is not down, clear the selection
+            if (!this.state.shiftFn) {
+              this.controller.clearSelection();
+            }
             this.controller.addNodesToSelection([selectedNode]);
           }
-        } else {
-          // otherwise, set selection group to this node
-          // if shift is not down, clear the selection
-          if (!this.state.shiftFn) {
-            this.controller.clearSelection();
-          }
-          this.controller.addNodesToSelection([selectedNode]);
-        }
 
-        // begin positioning 
-        this.toolController.beginPositionNodes(evt.detail.position);
-        this.state.mode = Mode.positionNode;
-      } else {
-        // ending positioning
-        this.toolController.endPositionNodes();
-        this.state.mode = Mode.idle;
+          // begin positioning 
+          this.toolController.beginPositionNodes(evt.detail.position);
+          this.state.mode = Mode.positionNode;
+        } else {
+          // on `up` event
+
+          // ending positioning
+          this.toolController.endPositionNodes();
+          this.state.mode = Mode.idle;
+        }
+      }
+    },
+
+    // ----- EDIT NODE ----- //
+
+    didEditNode: function (evt, dtl, sndr) {
+      if (this.state.mode === Mode.idle) {
+        if (dtl.wantsEdit) {
+          sndr.startEdit();
+          this.state.mode = Mode.editNode;
+        }
+      } else if (this.state.mode === Mode.editNode) {
+        if (!dtl.wantsEdit) {
+          sndr.endEdit();
+          this.state.mode = Mode.idle;
+        }
       }
     },
 
@@ -454,6 +466,33 @@ require([ 'core/signals'
 
 
     // ----- HELPERS ----- //
+
+    makePatchCableCurve: function (edgeData) {
+      var outlet = 
+        this.getNodeElement(edgeData.from).getOutlet();
+      var inlet = 
+        this.getNodeElement(edgeData.to.nodeId).getInlet(edgeData.to.inlet);
+
+      var offset = {
+        x: -this.getBoundingClientRect().left,
+        y: -this.getBoundingClientRect().top,
+      }
+
+      var fromRect = outlet.getBoundingClientRect();
+      var toRect = inlet.getBoundingClientRect();
+
+      var startPoint = {
+        x: offset.x + fromRect.left + fromRect.width / 2, 
+        y: offset.y + fromRect.top + fromRect.height / 2 + 10
+      };
+
+      var endPoint = {
+        x: offset.x + toRect.left + toRect.width / 2, 
+        y: offset.y + toRect.top + toRect.height / 2 - 10
+      };
+
+      return this.makeCurve(startPoint, endPoint);
+    },
 
     makeCurve: function (startPoint, endPoint) {
       var flowDirection = { x: 0, y: 1 };

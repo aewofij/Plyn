@@ -43,14 +43,18 @@ define([ 'core/signals'
           assert.deepEqual(Signal.pull(outSig), Data.Number(-1));
 
           beh.connect(inputNode1, { node: sumNode, inlet: 0 });
+          assert.notEqual(_.values(sumNode.inlets)[0], null);
+          assert.notEqual(_.values(inputNode1.outlet)[0], null);
           assert.deepEqual(Signal.pull(outSig), Data.Number(-1));
 
-          beh.connect(strInput, { node: sumNode, inlet: 1 });
+          var disconnected1 = beh.connect(strInput, { node: sumNode, inlet: 1 });
+          assert.equal(disconnected1.length, 1); // doesn't check; 'disconnects' new connection
+          assert.deepEqual(disconnected1[0], {from: strInput, to: { node: sumNode, inlet: 1 }});
           assert.deepEqual(Signal.pull(outSig), Data.Number(-1));
           assert.notEqual(sumNode.inlets[0], null);
           assert.equal(sumNode.inlets[1], null);
 
-          beh.connect(inputNode2, { node: sumNode, inlet: 1 });
+          var disconnected = beh.connect(inputNode2, { node: sumNode, inlet: 1 });
           assert.deepEqual(Signal.pull(outSig), Data.Number(-1));
 
           beh.connect(sumNode, { node: outputNode, inlet: 0 });
@@ -65,7 +69,7 @@ define([ 'core/signals'
           var in3 = Signal.Signal(Type.Boolean, Data.Boolean(false));
           var in4 = Signal.Signal(Type.String, Data.String("asdfas"));
           var inputNode3 = ArrowNode.InputNode(in3);
-          var inputNode4 = ArrowNode.InputNode();
+          var inputNode4 = ArrowNode.InputNode(in4);
           inputNode4.arrow.setParameter('signal', in4);
 
           beh.addNode(inputNode3);
@@ -82,10 +86,23 @@ define([ 'core/signals'
           assert.deepEqual(Signal.pull(outSig), Data.Number(3));
 
           beh.connect(inputNode3, { node: sumNode, inlet: 0 });
-          beh.connect(inputNode4, { node: sumNode, inlet: 0 });
+          var disconnected2 = beh.connect(inputNode4, { node: sumNode, inlet: 0 });
+          assert.equal(disconnected2.length, 1); // 'disconnects' new connection
+          assert.deepEqual(disconnected2[0], { from: inputNode4, to: { node: sumNode, inlet: 0 } });
+
           Signal.push(in3, Data.Boolean(true));
           Signal.push(in4, Data.String('AHHH'));
           assert.deepEqual(Signal.pull(outSig), Data.Number(3));
+
+          beh.connect(inputNode2, { node: sumNode, inlet: 0 });
+          var disconnected3 = beh.connect(inputNode1, { node: sumNode, inlet: 0 });
+          Signal.push(s1, Data.Number(10));
+          assert.deepEqual(Signal.pull(outputNode, Data.Number(20)));
+
+          // 'disconnects' old connection on sumNode$0
+          assert.equal(disconnected3.length, 1); 
+          assert.deepEqual(disconnected3[0], { from: inputNode2, to: { node: sumNode, inlet: 0 } });
+
       });
 
       QUnit.test('re-plugging into polymorphic arrows', function (assert) {

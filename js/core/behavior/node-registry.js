@@ -78,7 +78,7 @@ define([ 'core/datatypes'
   function getNode (kind) {
     var nodeEntry = kindToNode[kind];
     if (nodeEntry === undefined) {
-      throw new Error('No such node: ', kindToNode);
+      throw new Error('No such node: ', kind);
     } else {
       var instance = (function () {
         if (nodeEntry.parameters.length !== undefined 

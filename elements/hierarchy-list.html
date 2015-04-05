@@ -4,8 +4,9 @@
 <link rel="import" href="../js/libs/core-collapse/core-collapse.html">
 <link rel="import" href="../js/libs/core-icons/core-icons.html">
 <link rel="import" href="../js/libs/core-icon-button/core-icon-button.html">
+<link rel="import" href="flower-picker.html">
 
-<polymer-element name="hierarchy-list">
+<polymer-element name="hierarchy-list" attributes="objects">
   <template>
     <style>
       :host {
@@ -25,30 +26,62 @@
         padding-left: 60px;
       }
 
-      .objEntry, .compEntry, .propertyEntry {
+      .objEntry, .compEntry, .propertyEntry, .addComponentButton {
         cursor: default;
-        height: 35px;
+        height: 45px;
       }
 
       .compEntry {
         background-color: #ddd;
       }
 
+      .addComponentButton {
+        background-color: #ccc;
+      }
+
       .propertyEntry {
         background-color: #bbb;
+      }
+
+      .componentPicker {
+        display: inline-block;
+        width: 100%;
+      }
+
+      .componentPicker::shadow > #card {
+        background-color: #666;
+        color: #eee;
+      }
+
+      .componentPicker::shadow .elm {
+        text-align: center;
+      }
+
+      .componentPicker::shadow .elm:hover {
+        background-color: #444;
+      }
+
+      .componentPicker::shadow .elm:active {
+        background-color: #222;
       }
     </style>
     
     <template repeat="{{obj in objects}}">
-      <div class="objEntry" on-tap="{{toggleObjectCollapse}}" 
-        horizontal layout center>{{obj.name}}</div>
+      <div class="objEntry"
+          horizontal layout center>
+        <span on-tap="{{toggleObjectCollapse}}" flex>
+          {{obj.model.name}}
+        </span>
+      </div>
       <core-collapse>
         <template repeat="{{component in obj.components}}">
-          <div class="compEntry" on-tap="{{toggleComponentCollapse}}" horizontal layout center>
-            <span flex>{{component.componentType}}</span>
+          <div class="compEntry" 
+              on-tap="{{toggleComponentCollapse}}" 
+              horizontal layout center>
+            <span flex>{{component.id}}</span>
           </div>
           <core-collapse>
-            <template repeat="{{property in component.signals}}">
+            <template repeat="{{property in viewProperties(component)}}">
               <div class="propertyEntry" horizontal layout center>
                 <span flex>{{property.name}}</span>
                 <core-icon-button class="inspectButton" icon="visibility"></core-icon-button>
@@ -56,65 +89,79 @@
             </template>
           </core-collapse>
         </template>
+        <div class="addComponentButton" 
+            center-justified horizontal layout>
+          <core-icon-button 
+            icon="add">
+          </core-icon-button>
+        </div>
+        <flower-picker class="componentPicker" 
+          elements="{{allComponents}}" 
+          valueattr="type"
+          on-item-selected="{{wantsAddComponent}}">
+        </flower-picker>
       </core-collapse>
     </template>
 
   </template>
   <script>
-    Polymer({
-      publish: {
-        objects: {
-          reflect: true,
-          value: []
-        }
-      },
+require(['js/app'], function (app) {
+require([ 'core/component-registry'
+        , 'underscore'
+        ], function (ComponentRegistry, _) {
+  Polymer('hierarchy-list', {
+    objects: [],
 
-      ready: function () {
-        var mkObj = function (name, components) {
-          var strToComponent = function (compStr) {
-            if (compStr === 't') {
-              return { componentType: 'Transform'
-                     , properties: [ { name: 'Position', value: 0 }
-                                   , { name: 'Rotation', value: 0 }
-                                   , { name: 'Scale', value: 0 } ] }
-            } else if (compStr === 'g') {
-              return { componentType: 'Geometry'
-                     , properties:  [] }
-            } else if (compStr === 'c') {
-              return { componentType: 'Collider'
-                     , properties: [] }
-            } else {
-              return { componentType: 'New component' }
-            }
-          } 
+    objectsChanged: function (oldValue, newValue) {
+      console.log('objectsChanged');
+    },
 
-          return {
-            name: name,
-            components: components.map(strToComponent)
-          }
-        }
+    viewComponents: function (ofObj) {
+      return _.values(ofObj.components);
+    },
 
-        this.objects = [ mkObj('Cursor', ['t','g','c'])
-                       , mkObj('Background', ['t','g'])
-                       , mkObj('Trigger box', ['t','c'])
-                       ];
-      },
+    viewProperties: function (ofComp) {
+      return _.map(_.keys(ofComp.component.signals[ofComp.component.componentType]), function (key) {
+        return {
+          name: key,
+          // TODO: show inherited signals
+          type: ofComp.component.signals[ofComp.component.componentType][key]
+        };
+      });
+    },
 
-      objectsChanged: function (oldValue, newValue) {
-        // console.log('objectsChanged: ', newValue);
-      },
+    allComponents: _.map(_.keys(ComponentRegistry.allComponents), function (componentType) {
+      return {
+        type: componentType,
+        construct: ComponentRegistry.allComponents[componentType]
+      };
+    }),
 
-      toggleObjectCollapse: function (evt, dtl, sndr) {
-        this.toggleOpened(sndr);
-      },
+    wantsAddComponent: function (evt, dtl, sndr) {
+      this.fire('add-component', {
+        construct: dtl.item.construct, 
+        onObj: evt.target.templateInstance.model.obj.model
+      });
+    },
 
-      toggleComponentCollapse: function (evt, dtl, sndr) {
-        this.toggleOpened(sndr);
-      },
+    // objectsChanged: function (oldValue, newValue) {
+    //   console.log('objectsChanged: ', newValue);
+    // },
 
-      toggleOpened: function (hdr) {
-        $(hdr).next('core-collapse')[0].toggle();
-      }
-    });
+    toggleObjectCollapse: function (evt, dtl, sndr) {
+      this.toggleOpened(sndr.parentNode);
+    },
+
+    toggleComponentCollapse: function (evt, dtl, sndr) {
+      this.toggleOpened(sndr);
+    },
+
+    toggleOpened: function (hdr) {
+      $(hdr).next('core-collapse')[0].toggle();
+    }
+  });
+});});
   </script>
+}
+}
 </polymer-element>

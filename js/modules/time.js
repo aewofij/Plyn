@@ -7,10 +7,10 @@ define([ 'core/components'
        , 'core/data'
        , 'core/datatypes' ], 
        function (Component, Signal, Data, Type) {
-  var typeString = 'Time';
+  Time.prototype.componentType = 'Time';
 
   function Time (ownerObj, interval) {
-    Component.call(this, ownerObj, typeString);
+    Component.call(this, ownerObj);
 
     this.start = Date.now();
 

@@ -14,11 +14,11 @@ define([ 'core/components'
                                      Type,
                                      Data,
                                      Vector2) {
-  var typeString = 'Mouse';
+  Mouse.prototype.componentType = 'Mouse';
   var requirements = [];
 
   function Mouse (ownerObj) {
-    Component.call(this, ownerObj, typeString);
+    Component.call(this, ownerObj);
 
     this.requirements.concat(requirements);
 

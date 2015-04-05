@@ -58,9 +58,10 @@
 
     require(['js/app'], function (app) {
       require([ 'run'
+              , 'ui/obj-list-controller'
               , 'ui/behavior-panel-controller'
               , 'underscore'
-              ], function (run, BehaviorPanelController, _) {
+              ], function (run, ObjListController, BehaviorPanelController, _) {
         Polymer('main-app', {
           ready: function () {
             Object.defineProperty(run.scene, 'dirtyIfChanged', {
@@ -77,7 +78,7 @@
             });
 
             this.$.listPanel.scene = run.scene;
-            this.$.behaviorPanel.scene = run.scene;
+            this.$.listPanel.controller = new ObjListController(run.scene);
             this.$.behaviorPanel.controller = new BehaviorPanelController(run.scene);
             this.$.scenePanel.scene = run.scene;
           }

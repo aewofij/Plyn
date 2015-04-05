@@ -32,8 +32,6 @@ define([ 'core/signals'
   var xform = new Transform(obj);
   var time = new Time(obj);
 
-
-
   // ------- START MOVE BOX BEHAVIOR ------- //
 
   var moveBoxBehavior = Behavior.Behavior('Move box');
@@ -66,11 +64,7 @@ define([ 'core/signals'
   }));
 
   var outputPosition = ArrowNode.OutputNode(xform.signals.Transform.position);
-
   var mouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
-  // Signal.subscribe(xform.signals.Transform.position, function (pos) {
-  //   console.log('moving to ', pos.val.x.val, pos.val.y.val);
-  // })
 
   moveBoxBehavior.addNode(timeInputNode);
   moveBoxBehavior.addNode(scaleAndWrap);

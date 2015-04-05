@@ -25,7 +25,9 @@ define([ 'core/datatypes'
       value: null
     },
 
-    /* parameters : [{type: ParameterType}]
+    /* parameters : [{type: ParameterType, 
+                      value: <parameter data>, 
+                      [changed: <function to call on value changed>]}]
      * Parameters for this Arrow. 
      * Example: for a `pushTo` arrow, which signal to push onto.
      */

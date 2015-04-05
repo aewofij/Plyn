@@ -14,17 +14,16 @@ define([ 'core/components'
                  Geometry, Mouse, Ramp, 
                  Rigidbody, Time, Transform) {
 
-  var typeToComponent = {};
-  var sampleObj = new Obj('sample');
+  var constructorsMap = {};
   function registerComponent (component) {
-    var sample = new component(sampleObj);
-    typeToComponent[sample.componentType] = component.prototype.constructor;
+    constructorsMap[component.prototype.componentType] = 
+      component.prototype.constructor;
   }
 
   [Geometry, Mouse, Ramp, Rigidbody, Time, Transform].map(registerComponent);
 
   function makeComponentCons (type) {
-    var cons = (typeToComponent[type]);
+    var cons = (constructorsMap[type]);
     if (cons === undefined) {
       throw new Error('no such component', type);
     } else {
@@ -33,6 +32,7 @@ define([ 'core/components'
   }
 
   return {
-    makeComponentCons: makeComponentCons
+    makeComponentCons: makeComponentCons,
+    allComponents: constructorsMap
   };
 });

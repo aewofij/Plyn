@@ -10,24 +10,38 @@ define([ 'underscore' ], function (_) {
   BehaviorPanelToolController.prototype = {
     // --- Patching --- //
 
+    patchState: {
+      from: null,
+      to: null
+    },
+
     /*
      *
-     * info : { to: { node: <node id>, inlet: <inlet idx> } }
+     * info : { to: { nodeId: <node id>, inlet: <inlet idx> } }
      *      | { from: <node id> }
      */
     beginPatching: function (info) {
-      console.log('began patching', info);
-
-      // if (_.has(info, 'to')) {
-
-      // } else if (_.has(info, 'from')) {
-        
-      // }
+      if (_.has(info, 'to')) {
+        this.patchState.to = info.to;
+      } else if (_.has(info, 'from')) {
+        this.patchState.from = info.from;
+      }
     },
 
-    endPatching: function (outlet, inlet) {
-      console.log('ended patching', info);
-      // TODO
+    endPatching: function (info) {
+      if (_.has(info, 'to')) {
+        this.controller.addEdge(this.patchState.from, info.to);
+      } else if (_.has(info, 'from')) {
+        this.controller.addEdge(info.from, this.patchState.to);
+      } else {
+        // console.log('ended patching at nowhere');
+      }
+
+      // Reset patch state.
+      this.patchState = {
+        from: null,
+        to: null
+      };
     },
 
 
@@ -42,19 +56,9 @@ define([ 'underscore' ], function (_) {
       // TODO
     },
 
-    addEdge: function (from, to) {
-      // TODO
-    },
-
-    deleteEdge: function (edgeId) {
-      // TODO
-    },
-
-
 
     // --- Positioning nodes --- //
     /* The user can only position selected nodes. */
-
 
     positionState: {
       startPosition: { x: null, y: null }

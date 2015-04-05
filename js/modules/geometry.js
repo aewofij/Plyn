@@ -18,12 +18,12 @@ define([ 'core/components'
                               Data,
                               Vector3,
                               Physics) {
-  var typeString = 'RectGeometry';
+  RectGeometry.prototype.componentType = 'RectGeometry';
   var requirements = [];
 
   function RectGeometry (ownerObj) {
     // call super
-    Component.call(this, ownerObj, typeString);
+    Component.call(this, ownerObj);
 
     this.requirements.concat(requirements);
 

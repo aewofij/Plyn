@@ -17,7 +17,8 @@
 
       /* sliding bar color */
       paper-tabs::shadow #selectionBar {
-        background-color: #333;
+        background-color: #fff;
+        height: 5px;
       }
 
       /* ink ripple color 
@@ -26,7 +27,7 @@
       }*/
 
       paper-tabs {
-        background-color: #ddd;
+        background-color: #ccc;
       }
 
       #behaviorField {
@@ -41,7 +42,7 @@
 
     <div vertical flow layout>
       <paper-tabs id="behaviorTabs" noink="true" selected="0" on-core-select="{{tabSwitched}}">
-        <template repeat="{{behaviors}}">
+        <template repeat="{{behaviorList}}">
           <paper-tab>{{name}}</paper-tab>
         </template>
       </paper-tabs>
@@ -57,19 +58,12 @@
               , 'core/behavior/behavior'
               , 'util/objutil' ], function (NodeRegistry, Behavior, ObjUtil) {
         Polymer('behavior-panel', {
-          publish: {
-            scene: {
-              objects: [],
-              behaviors: {}
-            }
-          },
-
           observe: {
-            'scene': 'updateView',
-            'activeBehavior': 'updateView'
+            'controller.scene': 'updateView',
+            'controller.activeBehavior': 'updateView'
           },
 
-          activeBehavior: {},
+          behaviorList: [],
 
           controller: null,
 
@@ -81,6 +75,7 @@
 
           controllerChanged: function () {
             this.$.behaviorField.controller = this.controller;
+            this.behaviorList = _.values(this.controller.scene.behaviors);
           },
 
 
@@ -95,8 +90,7 @@
 
           tabSwitched: function (evt, dtl, sndr) {
             if (dtl.isSelected) {
-              this.controller.activeBehavior = this.behaviors[sndr.selected];
-              // this.activeBehavior = this.behaviors[sndr.selected];
+              this.controller.activeBehavior = this.behaviorList[sndr.selected];
             }
           },
 
@@ -123,21 +117,6 @@
           // ----- Updates ----- //
 
           updateView: function () {
-            var self = this;
-
-            var behaviorList = Object.keys(this.scene.behaviors).map(function (k) {
-              return self.scene.behaviors[k];
-            });
-
-            this.$.behaviorField.behaviors = behaviorList;
-            this.behaviors = behaviorList;
-
-            if (this.$.behaviorField.activeBehavior === null) {
-              if (behaviorList.length > 0) {
-                this.$.behaviorField.activeBehavior = behaviorList[0];
-              }
-            }
-
             this.updateDimensions();
           },
 

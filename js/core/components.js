@@ -1,13 +1,9 @@
 /*
 Defines the interface for a component.
-
-Components give their objects two kinds of powers:
-# Signals
-# Actions
 */
 
 define(function () {
-  function Component (ownerObj, componentType) {
+  function Component (ownerObj) {
     // What other `Component`s does an `Obj` need to use this `Component`?
     this.requirements = [];
     
@@ -17,18 +13,18 @@ define(function () {
     // Maps identifiers to this `Component`'s `Actions`s
     this.actions = {};
 
-    // Identifier for this component type.
-    this.componentType = componentType;
+    // // Identifier for this component type.
+    // this.componentType = componentType;
 
-    this.serialize = function () {
+    this.serialize = (function () {
       return {
-        type: componentType,
+        type: this.componentType,
         options: {}
       };
-    };
+    }).bind(this);
 
     if (ownerObj !== null) {
-      ownerObj.addComponent(componentType + ' ' + Object.keys(ownerObj.components).length, 
+      ownerObj.addComponent(this.componentType + ' ' + Object.keys(ownerObj.components).length, 
                             this);
     }
   }

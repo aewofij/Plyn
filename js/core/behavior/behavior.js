@@ -60,7 +60,7 @@ define([ 'core/datatypes'
       value: function () {
         var outgoing = function (fromNode) {
           return _.values(fromNode.outlet).reduce(function (acc, to) {
-            acc[edgeId(fromNode, to)] = {
+            acc[edgeId(fromNode.id, to)] = {
               from: fromNode.id,
               to: {
                 node: to.nodeId,
@@ -107,7 +107,7 @@ define([ 'core/datatypes'
      */
     connect: {
       value: function connect (from, to) {
-        ArrowNode.connect(from, to);
+        return ArrowNode.connect(from, to);
         // var self = this;
 
         // // disconnect anything previously connected to `to`
@@ -369,7 +369,7 @@ define([ 'core/datatypes'
       return result;
     }));
 
-    console.log(result);
+    // console.log(result);
 
     toConnect.forEach(function (edge) {
       result.connect(edge.from, { node: result.getNode(edge.to.nodeId), inlet: edge.to.inlet });
@@ -377,8 +377,13 @@ define([ 'core/datatypes'
   }
 
 
+  /* Creates an edge ID from connection information.
+   *
+   * from : <node id>
+   * to   : { nodeId: <node id>, inlet: <inlet idx> }
+   */
   function edgeId (from, to) {
-    return from.id + '>>' + to.nodeId + '$' + to.inlet;
+    return from + '>>' + to.nodeId + '$' + to.inlet;
   }
 
   /*
@@ -411,7 +416,7 @@ define([ 'core/datatypes'
 
     var outgoing = function (fromNode) {
       return _.values(fromNode.outlet).reduce(function (acc, to) {
-        acc[edgeId(fromNode, to)] = {
+        acc[edgeId(fromNode.id, to)] = {
           from: fromNode.id,
           to: {
             node: to.nodeId,
@@ -438,7 +443,8 @@ define([ 'core/datatypes'
     Behavior: Behavior,
     serialize: serialize,
     parse: parse,
-    sparseView: sparseView
+    sparseView: sparseView,
+    edgeId: edgeId
   }
 
 });

@@ -284,11 +284,13 @@ define([ 'arrows/std-arrows'
    */
   function connect (from, to) {
     var self = this;
+    var disconnected = [];
 
     // disconnect anything previously connected to `to`
     if (to.node.inlets[to.inlet] !== null 
         && to.node.inlets[to.inlet] !== undefined) {
 
+      disconnected.push({ from: to.node.inlets[to.inlet], to: to });
       self.disconnect(to.node.inlets[to.inlet], to);
     }
 
@@ -321,8 +323,9 @@ define([ 'arrows/std-arrows'
 
     if (!solution.checks) {
       // disconnect new connection, abort
+      disconnected.push({ from: from, to: to });
       self.disconnect(from, to);
-      return;
+      return disconnected;
     } else {
       // set current type map for `to`'s node
       to.node.currentTypes = solution.get;
@@ -351,6 +354,14 @@ define([ 'arrows/std-arrows'
       // pull new value from ancestors
       to.node.arrowInstance.pull();
 
+      // successfully connected this pair; 
+      // remove from disconnect list if added above
+      disconnected = _.reject(disconnected, function (elm) {
+        return elm.from.id == from.id
+            && elm.to.node.id == to.node.id
+            && elm.to.inlet == to.inlet;
+      });
+
       // attempt to reconnect nodes previously connected to `to`'s outlet
       //   (they'll pull the new value from `to` if they want it)
       _.values(to.node.outlet).forEach(function (connectedNode) {
@@ -358,15 +369,16 @@ define([ 'arrows/std-arrows'
         if (Type.isRefinement(to.node.signal.type, 
                               getType(connectedNode.node.arrow.inputTypes[connectedNode.inlet]))) {
                               // connectedNode.node.arrowInstance.inputs[connectedNode.inlet].type)) {
-          self.connect(to.node, connectedNode);
+          var childDisconnects = self.connect(to.node, connectedNode);
+          disconnected = disconnected.concat(childDisconnects);
         } else {
-          // TODO: somehow notify on this?
-          // console.log('Disconnected ' + to.node.name + ' from ' + connectedNode.node.name);
+          disconnected.push({ from: to.node, to: connectedNode });
           self.disconnect(to.node, connectedNode);
         }
       });
 
     } 
+    return disconnected;
   }
 
   /* Removes the specified connection from the graph.

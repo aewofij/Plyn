@@ -19,16 +19,16 @@
   "dependencies": {
     "qunit": null,
     "requirejs": null,
-    "polymer": "Polymer/polymer#~0.5.5",
-    "paper-icon-button": "Polymer/paper-icon-button#~0.5.5",
-    "core-elements": "Polymer/core-elements#~0.5.5",
-    "core-list": "Polymer/core-list#~0.5.5",
+    "polymer": "Polymer/polymer#^0.5.5",
+    "core-elements": "Polymer/core-elements#^0.5.5",
+    "core-list": "Polymer/core-list#^0.5.5",
+    "paper-icon-button": "Polymer/paper-icon-button#^0.5.5",
+    "paper-tabs": "Polymer/paper-tabs#^0.5.5"
     "pixi": "~2.2.7",
     "bacon": "~0.7.53",
     "physicsjs": "~0.7.0",
     "fabric": "~1.4.13",
     "underscore": "~1.8.2",
-    "paper-tabs": "Polymer/paper-tabs#~0.5.5"
   },
   "devDependencies": {
     "qunit": "~1.17.1"

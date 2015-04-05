@@ -38,6 +38,7 @@
       }
 
       #card {
+        border-radius: 10px;
         background-color: white;
         padding: 5px 5px;
         min-width: 80px;
@@ -48,6 +49,10 @@
         font-weight: 800;
         white-space: nowrap;
         overflow: hidden; 
+      }
+
+      #editNodeKind {
+        display: inline-block;
       }
 
       #editNodeKindInput {
@@ -111,25 +116,31 @@
         selected="kindBox" 
         touch-action="none"
         on-down="{{startPosition}}"
-        on-up="{{endPosition}}"
+        on-mouseup="{{endPosition}}"
         flex>
         <div id="kindBox" horizontal layout>
-          <core-pages id="kindPages" valueattr="id" selected="nodeKind" flex>
+          <core-pages id="kindPages" 
+            valueattr="id" 
+            selected="nodeKind" 
+            flex>
             <div id="nodeKind">
               {{node.model.arrow.name}}
             </div>
             <div id="editNodeKind">
               <input id="editNodeKindInput" 
                 is="core-input" 
-                placeholder="new node" 
+                placeholder="new node"
                 committedValue="{{committedNodeKind}}">
+              <template repeat="{{formatParameters(node.model.arrow.parameters)}}">
+                <div>{{type}}</div>
+              </template>
             </div>
           </core-pages>
           <core-icon id="editButton" 
             icon="create" 
             style="width: 12px; height: 12px;"
             touch-action="none"
-            on-tap="{{startEdit}}"
+            on-tap="{{wantsEdit}}"
             self-end>
           </core-icon>
         </div>
@@ -154,6 +165,7 @@
               , 'underscore' ], 
               function (Type, Signal, _) {
         Polymer('arrow-node', {
+
 
           // ----- Polymer fields ----- //
 
@@ -182,8 +194,13 @@
 
           // ----- Lifecycle ----- //
 
+          _ready: false, // bleh
           ready: function () {
-            this.committedNodeKind = this.node.model.name;
+            this.committedNodeKind = this.node.model.arrow.name;
+
+            // this is to stop trying to reconstruct nodes on load 
+            // (see beginning of `committedNodeKindChanged`)
+            this.async(function () { this._ready = true; });
           },
 
           attached: function () {
@@ -196,6 +213,11 @@
           // The user-entered node kind.
           committedNodeKind: null,
           committedNodeKindChanged: function (oldValue, newValue) {
+            // if set during setup, ignore
+            if (!this._ready) return;
+
+            this.isEditing = false;
+
             // just got a new value, leave edit mode
             this.$.kindPages.selected = "nodeKind";
 
@@ -224,6 +246,8 @@
             }
           },
 
+          isEditing: false,
+
 
           // ----- Public methods ----- //
 
@@ -234,6 +258,41 @@
 
           getOutlet: function () {
             return this.$.outlet;
+          },
+
+          wantsEdit: function () {
+            this.fire('node-edit', {
+              wantsEdit: true,
+              node: this.node
+            });
+          },
+
+          wantsEndEdit: function () {
+            this.fire('node-edit', {
+              wantsEdit: false,
+              node: this.node
+            });
+          },
+
+          startEdit: function () {
+            this.isEditing = true;
+
+            this.$.kindPages.selected = "editNodeKind";
+            this.$.editNodeKindInput.value = this.node.model.name;
+            this.$.editNodeKindInput.focus();
+
+            var self = this;
+            var evt = this.$.editNodeKindInput.addEventListener('keydown', function (evt) {
+              if (evt.keyIdentifier === "U+001B") {
+                self.wantsEndEdit.call(self);
+              }
+            });
+          },
+
+          endEdit: function () {
+            this.isEditing = false;
+            this.$.kindPages.selected = "nodeKind";
+            this.$.editNodeKindInput.value = this.node.model.name;
           },
 
           // ----- Helper methods ----- //
@@ -269,22 +328,12 @@
             }
           },       
 
+          formatParameters: function (paramsObj) {
+            return _.values(paramsObj);
+          },
 
           // ----- Setup methods ----- //
 
-          startEdit: function (evt) {
-            this.$.editNodeKindInput.value = this.node.model.name;
-            this.$.kindPages.selected = "editNodeKind";
-            this.$.editNodeKindInput.focus();
-
-            var self = this;
-            var evt = this.$.editNodeKindInput.addEventListener('keydown', function (evt) {
-              if (evt.keyIdentifier === "U+001B") {
-                self.$.kindPages.selected = "nodeKind";
-                self.$.editNodeKindInput.value = self.node.model.name;
-              }
-            });
-          },
 
           startPosition: function (evt) {
             this.fire('node-selected', { 

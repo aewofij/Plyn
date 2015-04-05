@@ -14,11 +14,11 @@ define([ 'core/components'
                                      Type,
                                      Data,
                                      Vector2) {
-  var typeString = 'Transform';
+  Transform.prototype.componentType = 'Transform';
   var requirements = [];
 
   function Transform (ownerObj) {
-    Component.call(this, ownerObj, typeString);
+    Component.call(this, ownerObj);
 
     var xformThis = this;
 

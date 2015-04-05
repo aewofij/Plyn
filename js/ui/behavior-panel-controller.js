@@ -2,7 +2,8 @@
 Provides a graph-based interface into a single behavior.
 */
 
-define([ 'underscore', 'core/signals' ], function (_, Signal) {
+define([ 'underscore', 'core/signals', 'core/behavior/behavior' ], 
+       function (_, Signal, Behavior) {
 
   function BehaviorPanelController (theScene) {
     if (!(this instanceof BehaviorPanelController)) 
@@ -59,9 +60,12 @@ define([ 'underscore', 'core/signals' ], function (_, Signal) {
                                function (node) {
                                  return _.map(_.values(node.outlet), function (to) {
                                    return {
+                                     id: Behavior.edgeId(node.id, 
+                                                         { nodeId: to.node.id
+                                                         , inlet: to.inlet }),
                                      from: self.getNode(node.id),
                                      to: {
-                                       node: self.getNode(to.nodeId),
+                                       node: self.getNode(to.node.id),
                                        inlet: to.inlet
                                      }
                                    };
@@ -79,6 +83,38 @@ define([ 'underscore', 'core/signals' ], function (_, Signal) {
       this.viewData[node.id].position = atPosition;
       this.activeBehavior.addNode(node);
       return this.getNode(node.id);
+    },
+
+    /*
+     * from : <node id>
+     * to   : { nodeId: <node id>, inlet: <inlet idx> }
+     */
+    addEdge: function (from, to) {
+      var self = this;
+
+      var beh = this.activeBehavior;
+      var fromNode = beh.getNode(from);
+      var toNode = beh.getNode(to.nodeId);
+
+      var disconnected = beh.connect(fromNode, {node: toNode, inlet: to.inlet});
+      _.each(disconnected, function (elm) {
+        var edgeId = Behavior.edgeId(elm.from.id, { nodeId: elm.to.node.id, inlet: elm.to.inlet });
+        var viewData = self.getNode(elm.from.id).view;
+        var cableShape = viewData.cableShapes[edgeId];
+        if (cableShape != null) {
+          if (cableShape.fabricObj !== null) {
+            cableShape.fabricObj.remove();
+          }
+          if (cableShape.unsubscribe !== null) {
+            cableShape.unsubscribe();
+          }
+          delete viewData.cableShapes[edgeId];
+        }
+      });
+    },
+
+    deleteEdge: function (edgeId) {
+      // TODO
     },
 
     // -- Selection -- //
@@ -152,12 +188,7 @@ define([ 'underscore', 'core/signals' ], function (_, Signal) {
       x: 0,
       y: 0
     };
-    this.outgoing = _.map(_.values(model.outlet), function (to) {
-      return {
-        from: model.id,
-        to: to
-      };
-    });
+    this.cableShapes = {};
   }
 
   NodeViewData.prototype = {
@@ -173,7 +204,29 @@ define([ 'underscore', 'core/signals' ], function (_, Signal) {
     },
 
     // outgoing : [{ from: <node id>, to: { node: <node id>, inlet: <inlet index> }}]
-    outgoing: null, 
+    get outgoing () {
+      var model = this.controller.getNode(this.id).model;
+      return _.map(_.values(model.outlet), function (to) {
+        var sparseTo = {
+          nodeId: to.node.id,
+          inlet: to.inlet
+        };
+        return {
+          id: Behavior.edgeId(model.id, sparseTo),
+          from: model.id,
+          to: sparseTo
+        };
+      })
+    }, 
+
+    // maps edge ID to FabricJS shape for outgoing cables
+    cableShapes: [{
+      // FabricJS object for this cable
+      fabricObj: null, 
+
+      // call this function to unsubscribe from cable updaters
+      unsubscribe: null
+    }],
 
     get isSelected () {
       return this.controller.isNodeInSelection(this.id);
