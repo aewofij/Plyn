@@ -29,9 +29,6 @@
   <script>
     Polymer({
       controller: null,
-      controllerChanged: function () {
-        this.$.hierarchy.objects = this.controller.allObjects;
-      },
 
       addObject: function (evt) {
         this.controller.addObject();
@@ -39,8 +36,6 @@
 
       addComponent: function (evt, dtl, sndr) {
         this.controller.addComponent(dtl.construct, dtl.onObj)
-        // console.log(this.$.hierarchy.objects, this.controller.allObjects);
-        this.$.hierarchy.objects = this.controller.allObjects;
       }
     });
   </script>

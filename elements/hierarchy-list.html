@@ -66,7 +66,7 @@
       }
     </style>
     
-    <template repeat="{{obj in objects}}">
+    <!-- <template repeat="{{obj in objects}}">
       <div class="objEntry"
           horizontal layout center>
         <span on-tap="{{toggleObjectCollapse}}" flex>
@@ -79,6 +79,43 @@
               on-tap="{{toggleComponentCollapse}}" 
               horizontal layout center>
             <span flex>{{component.id}}</span>
+          </div>
+          <core-collapse>
+            <template repeat="{{property in viewProperties(component)}}">
+              <div class="propertyEntry" horizontal layout center>
+                <span flex>{{property.name}}</span>
+                <core-icon-button class="inspectButton" icon="visibility"></core-icon-button>
+              </div>
+            </template>
+          </core-collapse>
+        </template>
+        <div class="addComponentButton" 
+            center-justified horizontal layout>
+          <core-icon-button 
+            icon="add">
+          </core-icon-button>
+        </div>
+        <flower-picker class="componentPicker" 
+          elements="{{allComponents}}" 
+          valueattr="type"
+          on-item-selected="{{wantsAddComponent}}">
+        </flower-picker>
+      </core-collapse>
+    </template> -->
+
+    <template repeat="{{obj in objects}}">
+      <div class="objEntry"
+          horizontal layout center>
+        <span on-tap="{{toggleObjectCollapse}}" flex>
+          {{obj.name}}
+        </span>
+      </div>
+      <core-collapse>
+        <template repeat="{{component in viewComponents(obj)}}">
+          <div class="compEntry" 
+              on-tap="{{toggleComponentCollapse}}" 
+              horizontal layout center>
+            <span flex>{{component.componentType}}</span>
           </div>
           <core-collapse>
             <template repeat="{{property in viewProperties(component)}}">
@@ -121,11 +158,11 @@ require([ 'core/component-registry'
     },
 
     viewProperties: function (ofComp) {
-      return _.map(_.keys(ofComp.component.signals[ofComp.component.componentType]), function (key) {
+      console.log(ofComp);
+      return _.map(_.keys(ofComp.signals[ofComp.componentType]), function (sigKey) {
         return {
-          name: key,
-          // TODO: show inherited signals
-          type: ofComp.component.signals[ofComp.component.componentType][key]
+          name: sigKey,
+          type: ofComp.signals[ofComp.componentType][sigKey].type
         };
       });
     },
@@ -143,11 +180,7 @@ require([ 'core/component-registry'
         onObj: evt.target.templateInstance.model.obj.model
       });
     },
-
-    // objectsChanged: function (oldValue, newValue) {
-    //   console.log('objectsChanged: ', newValue);
-    // },
-
+    
     toggleObjectCollapse: function (evt, dtl, sndr) {
       this.toggleOpened(sndr.parentNode);
     },
