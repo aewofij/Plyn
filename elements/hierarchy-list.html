@@ -66,7 +66,7 @@
       }
     </style>
     
-    <!-- <template repeat="{{obj in objects}}">
+    <template repeat="{{obj in objects}}">
       <div class="objEntry"
           horizontal layout center>
         <span on-tap="{{toggleObjectCollapse}}" flex>
@@ -78,47 +78,10 @@
           <div class="compEntry" 
               on-tap="{{toggleComponentCollapse}}" 
               horizontal layout center>
-            <span flex>{{component.id}}</span>
+            <span flex>{{component.model.componentType}}</span>
           </div>
           <core-collapse>
-            <template repeat="{{property in viewProperties(component)}}">
-              <div class="propertyEntry" horizontal layout center>
-                <span flex>{{property.name}}</span>
-                <core-icon-button class="inspectButton" icon="visibility"></core-icon-button>
-              </div>
-            </template>
-          </core-collapse>
-        </template>
-        <div class="addComponentButton" 
-            center-justified horizontal layout>
-          <core-icon-button 
-            icon="add">
-          </core-icon-button>
-        </div>
-        <flower-picker class="componentPicker" 
-          elements="{{allComponents}}" 
-          valueattr="type"
-          on-item-selected="{{wantsAddComponent}}">
-        </flower-picker>
-      </core-collapse>
-    </template> -->
-
-    <template repeat="{{obj in objects}}">
-      <div class="objEntry"
-          horizontal layout center>
-        <span on-tap="{{toggleObjectCollapse}}" flex>
-          {{obj.name}}
-        </span>
-      </div>
-      <core-collapse>
-        <template repeat="{{component in viewComponents(obj)}}">
-          <div class="compEntry" 
-              on-tap="{{toggleComponentCollapse}}" 
-              horizontal layout center>
-            <span flex>{{component.componentType}}</span>
-          </div>
-          <core-collapse>
-            <template repeat="{{property in viewProperties(component)}}">
+            <template repeat="{{property in viewProperties(component.model)}}">
               <div class="propertyEntry" horizontal layout center>
                 <span flex>{{property.name}}</span>
                 <core-icon-button class="inspectButton" icon="visibility"></core-icon-button>
@@ -149,16 +112,11 @@ require([ 'core/component-registry'
   Polymer('hierarchy-list', {
     objects: [],
 
-    objectsChanged: function (oldValue, newValue) {
-      console.log('objectsChanged');
-    },
-
     viewComponents: function (ofObj) {
       return _.values(ofObj.components);
     },
 
     viewProperties: function (ofComp) {
-      console.log(ofComp);
       return _.map(_.keys(ofComp.signals[ofComp.componentType]), function (sigKey) {
         return {
           name: sigKey,
@@ -180,7 +138,7 @@ require([ 'core/component-registry'
         onObj: evt.target.templateInstance.model.obj.model
       });
     },
-    
+
     toggleObjectCollapse: function (evt, dtl, sndr) {
       this.toggleOpened(sndr.parentNode);
     },

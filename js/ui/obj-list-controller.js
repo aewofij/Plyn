@@ -6,8 +6,12 @@ define([ 'underscore' ],
        function (_) {
 
   function ObjListController (theScene) {
+    var self = this;
+
     this.scene = theScene;
+
     this.updateObjectList();
+    // Object.observe(this.scene.objects, this.updateObjectList);
   }
 
   ObjListController.prototype = {
@@ -17,8 +21,9 @@ define([ 'underscore' ],
     allObjects: [],
 
     addObject: function () {
-      return this.scene.addObject();
+      var result = this.scene.addObject();
       this.updateObjectList();
+      return result;
     },
 
     addComponent: function (componentCons, onObj) {
@@ -27,7 +32,18 @@ define([ 'underscore' ],
     },
 
     updateObjectList: function () {
-      this.allObjects = _.values(this.scene.objects);
+      // this.allObjects = _.values(this.scene.objects);
+      this.allObjects = _.values(this.scene.objects).map(function (obj) {
+        return {
+          model: obj,
+          components: _.keys(obj.components).map(function (compKey) {
+            return {
+              id: compKey,
+              model: obj.components[compKey]
+            };
+          })
+        };
+      });
     }
 
   }
