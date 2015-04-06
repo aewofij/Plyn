@@ -3,10 +3,11 @@ Keeps a database of nodes that can be instantiated by the user.
 */
 
 define([ 'core/datatypes'
+       , 'core/data'
        , 'util/vector2'
        , 'core/behavior/arrow-node'
        , 'arrows/std-arrows' ], 
-       function (Type, Vector2, ArrowNode, StdArrows) {
+       function (Type, Data, Vector2, ArrowNode, StdArrows) {
 
   var ParameterType = {
     signal: 'signal',
@@ -26,18 +27,11 @@ define([ 'core/datatypes'
       , construct: function () {
           return ArrowNode.ArrowNode(StdArrows.merge);
         }
-      , parameters: []
       }
     , { kind: 'signal'
       , construct: function () {
-          return function (signal) {
-            return ArrowNode.InputNode(signal);
-          };
+          return ArrowNode.InputNode();
         }
-      , parameters: [ { type: ParameterType.signal
-                      , description: 'the signal'
-                      } 
-                    ]
       }
     , { kind: 'sum'
       , construct: function () {
@@ -46,27 +40,27 @@ define([ 'core/datatypes'
                                                                             return v1 + v2;
                                                                           }));
         }
-      , parameters: []
       }
     , { kind: 'filter repeats'
       , construct: function () {
           return ArrowNode.ArrowNode(StdArrows.filterRepeats);
         }
-      , parameters: []
       }
     , { kind: 'match number'
       , construct: function () {
           return ArrowNode.ArrowNode(StdArrows.matchType()
-                                              .setParameter('type', Type.Number));
+                                              .setParameter('type', Type.Number)
+                                              .setParameter('defaultValue', Data.Number(0)));
         }
-      , parameters: []
       }
     , { kind: 'match vector'
       , construct: function () {
           return ArrowNode.ArrowNode(StdArrows.matchType()
-                                              .setParameter('type', Vector2.type));
+                                              .setParameter('type', Vector2.type)
+                                              .setParameter('defaultValue', 
+                                                            Vector2.Vector2 (Data.Number(0))
+                                                                            (Data.Number(0))));
         }
-      , parameters: []
       }
     ]
 
@@ -80,26 +74,27 @@ define([ 'core/datatypes'
     if (nodeEntry === undefined) {
       throw new Error('No such node: ', kind);
     } else {
-      var instance = (function () {
-        if (nodeEntry.parameters.length !== undefined 
-            && nodeEntry.parameters.length > 0) {
-          return {
-            node: nodeEntry.construct.apply(nodeEntry, 
-                                            _.map(nodeEntry.parameters, defaultParameter)),
-            parameters: []
-          };
-        } else {
-          return {
-            node: nodeEntry.construct(),
-            parameters: []
-          };
-        }
-      })();
+      return nodeEntry;
+      // var instance = (function () {
+      //   if (nodeEntry.parameters.length !== undefined 
+      //       && nodeEntry.parameters.length > 0) {
+      //     return {
+      //       node: nodeEntry.construct.apply(nodeEntry, 
+      //                                       _.map(nodeEntry.parameters, defaultParameter)),
+      //       parameters: []
+      //     };
+      //   } else {
+      //     return {
+      //       node: nodeEntry.construct(),
+      //       parameters: []
+      //     };
+      //   }
+      // })();
 
-      return {
-        info: nodeEntry,
-        instance: instance
-      };
+      // return {
+      //   info: nodeEntry,
+      //   instance: instance
+      // };
     }
   }
 

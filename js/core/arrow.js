@@ -333,7 +333,9 @@ define([ 'core/datatypes'
       },
       returnType: {
         enumerable: true,
-        get: function () { return this.parameters.signal.value.type }
+        get: function () { return this.parameters.signal.value != null
+                                  ? this.parameters.signal.value.type
+                                  : Type.Variable('a') }
       },
       plug: {
         enumerable: true,

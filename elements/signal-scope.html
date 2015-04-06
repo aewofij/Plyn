@@ -31,6 +31,9 @@ require([ 'core/signals'
 
       this.disconnectSignal();
 
+      this.currentMax = null;
+      this.currentMin = null;
+
       if (Type.isRefinement(sig.type, Type.Number)) {
         this.unsub = Signal.subscribe(sig, function (v) {
           self.signal = v.val;
@@ -83,6 +86,9 @@ require([ 'core/signals'
     // number of displayed samples
     bufferSize: 30,
 
+    currentMin: null,
+    currentMax: null,
+
     dimensionsChanged: function () {
       var width = this.offsetWidth;
       var height = this.offsetHeight;
@@ -134,6 +140,13 @@ require([ 'core/signals'
     sample: function () {
       this.buffer.unshift(this.signal);
       this.buffer = this.buffer.slice(0, this.bufferSize+1);
+
+      if (this.currentMax == null || this.signal > this.currentMax) {
+        this.currentMax = this.signal;
+      }
+      if (this.currentMin == null || this.signal < this.currentMin) {
+        this.currentMin = this.signal;
+      }
     },
 
     // redraws scope with current buffer
@@ -149,12 +162,13 @@ require([ 'core/signals'
       if (this.buffer.length > 1) {
         var segmentWidth = this.stage.width / (this.buffer.length - 1);
         var yDisplacement = this.stage.height / 2;
-        var maxY = Math.max.apply(null, this.buffer.map(function (elm) { return Math.abs(elm) }));
-        var yScale = (maxY === 0 ? 0 : (1 / maxY)) * (this.stage.height / 2);
+        // var maxY = Math.max.apply(null, this.buffer.map(function (elm) { return Math.abs(elm) }));
+        var range = this.currentMax - this.currentMin;
+        var yScale = (range === 0 ? 0 : (1 / range)) * (this.stage.height);
 
         var drawSegment = (function (elm, idx, arr) {
           if (idx !== 0) {
-            this.gfx.lineTo(idx * segmentWidth, arr[idx] * yScale + yDisplacement);
+            this.gfx.lineTo(idx * segmentWidth, (arr[idx] - this.currentMin) * yScale);
             this.gfx.stroke();
           }
         }).bind(this);

@@ -37,12 +37,12 @@
 
       #picker {
         z-index: 10;
-        position: absolute;
+        position: relative;
         display: none;
       }
 
       #nonCanvas {
-        position:absolute;
+        position: absolute;
         left: 0;
         top: 0;
         transform: scale({{state.zoom}});
@@ -152,7 +152,7 @@ require([ 'core/signals'
               viewData.cableShapes[outEdge.id] = {};
               viewData.cableShapes[outEdge.id]['fabricObj'] = 
                 new Fabric.Path('M 0 0 C 0 0 0 0 0 0', 
-                                {fill:'', stroke:'black'});
+                                {fill:'', stroke:'#222', strokeWidth: 3});
               var positionCable = _.partial(function (edgeData, shape) {
                 var curve = self.makePatchCableCurve(edgeData);
 
