@@ -25,10 +25,9 @@ define([ 'core/components'
     this.requirements.concat(requirements);
 
     this.signals[this.componentType] = {
-      position: new Signal.Signal(Vector2.type, 
-                                  Data.Record (Vector2.type) 
-                                              (Data.Number (0))
-                                              (Data.Number (0)))
+      position: new Signal.Signal(Vector2.type, undefined,
+                                  'transformposition')
+
     };
 
     this.actions[this.componentType] = {
@@ -38,7 +37,6 @@ define([ 'core/components'
         // TODO: make injection function for above case? how to do safely? monadic?
       })
     };
-
 
     // ---- Modifying backing object ---- //
     ownerObj.body.components[this.componentType] = this;

@@ -35,13 +35,14 @@ define([ 'core/data'
               y: bodies[i].state.pos.y
             };
 
-            // if (currentModelPos.x !== currentPhysicsPos.x || currentModelPos.y !== currentPhysicsPos.y) {
-            //   console.log('setting model position');
+            bodies[i].state.pos.x = currentModelPos.x;
+            bodies[i].state.pos.y = currentModelPos.y;
 
-            //   var posVec = Vector2.Vector2 (Data.Number (currentPhysicsPos.x)) 
-            //                                (Data.Number (currentPhysicsPos.y));
-            //   Signal.push(xform.signals['Transform'].position, posVec);
-            // }
+            if (currentModelPos.x !== currentPhysicsPos.x || currentModelPos.y !== currentPhysicsPos.y) {
+              var posVec = Vector2.Vector2 (Data.Number (currentPhysicsPos.x)) 
+                                           (Data.Number (currentPhysicsPos.y));
+              Signal.push(xform.signals['Transform'].position, posVec);
+            }
 
           }
         }

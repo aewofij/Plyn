@@ -26,7 +26,8 @@ define([ 'core/components'
       position: new Signal.Signal(Vector2.type, 
                                   Data.Record (Vector2.type) 
                                               (Data.Number (0))
-                                              (Data.Number (0))),
+                                              (Data.Number (0)),
+                                  'mouseposition'),
       down: new Signal.Signal(Type.Boolean,
                               Data.Boolean (false))
     };
@@ -38,7 +39,7 @@ define([ 'core/components'
 
     var self = this;
 
-    document.onmousemove = function (evt) {
+    window.addEventListener('mousemove', function (evt) {
       if (DLGlobals.sceneViewport !== undefined) {
         var rect = DLGlobals.sceneViewport.getBoundingClientRect();
 
@@ -47,9 +48,9 @@ define([ 'core/components'
                       Vector2.Vector2 (Data.Number (scaled.x)) (Data.Number (scaled.y)));
         });
       }
-    }
+    });
 
-    document.onmousedown = function (evt) {
+    window.addEventListener('mousedown', function (evt) {
       // if we have a scene,
       if (DLGlobals.sceneViewport !== undefined) {
         // then only push when the mouse is inside the scene.
@@ -63,12 +64,13 @@ define([ 'core/components'
         Signal.push(self.signals[self.componentType].down, 
                     Data.Boolean (true));
       }
-    }
+    });
 
-    document.onmouseup = function (evt) {
+    window.addEventListener('mouseup', function (evt) {
+      // always send mouseups
       Signal.push(self.signals[self.componentType].down, 
                   Data.Boolean (false));
-    }
+    });
 
 
     // ---- Modifying backing object ---- //

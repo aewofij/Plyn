@@ -10,6 +10,33 @@ define([ 'core/signals'
                       Transform, Vector3, ObjUtil ) {
   return {
     run: function () {
+      // Sugar for asynchronous testing, 
+      //   based off of `requestAnimationFrame`.
+      function waitForFrame (asrt, proc) {
+        return {
+          procQueue: [proc],
+
+          then: function (nextProc) {
+            this.procQueue.push(nextProc);
+            return this;
+          },
+
+          end: function () {
+            var self = this;
+            var done = asrt.async();
+            window.requestAnimationFrame(function () {
+              (self.procQueue.shift())();
+
+              if (self.procQueue.length > 0) {
+                self.end();
+              }
+
+              done();
+            });
+          }
+        };
+      }
+
       QUnit.module('Arrows');
 
       QUnit.test('plugging', function (assert) {
@@ -27,20 +54,26 @@ define([ 'core/signals'
 
         // assert.ok(Data.equal(arrowInfo.signal.current, Data.Number(3)));
 
-        Signal.push(s1, Data.Number(4));
-        assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(6)));
+        waitForFrame(assert, function () {
+          Signal.push(s1, Data.Number(4));
+        }).then(function () {
+          assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(6)));
 
-        Signal.push(s1, Data.Number(3));
-        assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(5)));
+          Signal.push(s1, Data.Number(3));
+        }).then(function () {
+          assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(5)));
 
-        Signal.push(s2, Data.Number(3));
-        assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(6)));
+          Signal.push(s2, Data.Number(3));
+        }).then(function () {
+          assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(6)));
 
-        Signal.push(s1, Data.Number(3));
-        assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(6)));
+          Signal.push(s1, Data.Number(3));
+        }).then(function () {
+          assert.ok(Data.equal(Signal.pull(arrowInfo.signal), Data.Number(6)));
 
-        assert.deepEqual(arrowInfo.inputs[0], s1);
-        assert.deepEqual(arrowInfo.inputs[1], s2);
+          assert.deepEqual(arrowInfo.inputs[0], s1);
+          assert.deepEqual(arrowInfo.inputs[1], s2);
+        }).end();
       });
 
       QUnit.test('unplugging', function (assert) {

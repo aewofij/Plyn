@@ -20,7 +20,14 @@ define([ 'core/components'
       component.prototype.constructor;
   }
 
-  [Geometry, Mouse, Ramp, Rigidbody, Time, Transform].map(registerComponent);
+  [ Geometry.Circle
+  , Geometry.Rectangle
+  , Mouse
+  , Ramp
+  , Rigidbody
+  , Time
+  , Transform
+  ].map(registerComponent);
 
   function makeComponentCons (type) {
     var cons = (constructorsMap[type]);

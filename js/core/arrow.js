@@ -191,7 +191,8 @@ define([ 'core/datatypes'
           var inputs = Array.prototype.slice.call(arguments);
           var arrow = this;
 
-          var resultSignal = checkPlug(arrow, inputs);
+          var typeEnv = checkPlug(arrow, inputs);
+          var resultSignal = Signal.Signal(typeEnv.get(arrow.returnType));
 
           // setup callbacks
           var cb = (function () {
@@ -220,6 +221,11 @@ define([ 'core/datatypes'
 
           var callbacks = [];
           for (var i = arrow.inputTypes.length - 1; i >= 0; i--) {
+            // callbacks.push(Signal.subscribe(inputs[i], function () {
+            //   if (_.every(arguments, function (elm) { return elm !== undefined })) {
+            //     cb.apply(this, arguments);
+            //   }
+            // }));
             callbacks.push(Signal.subscribe(inputs[i], cb));
           };
 
@@ -284,7 +290,9 @@ define([ 'core/datatypes'
         enumerable: true,
         value: function () {
           var inputs = Array.prototype.slice.call(arguments);
-          var resultSignal = checkPlug(this, inputs);
+
+          var typeEnv = checkPlug(this, inputs);
+          var resultSignal = Signal.Signal(typeEnv.get(arrow.returnType));
 
           var unplugs = subscriptions.reduce(function (prev, subToInput, idx) {
             return prev.concat(subToInput.map(function (sub) {
@@ -356,6 +364,8 @@ define([ 'core/datatypes'
     type: 'type',
   }
 
+  // checks that plugging `inputs` into `arrow` is valid; 
+  //   returns the type environment resulting from ths plug
   function checkPlug (arrow, inputs) {
     // make sure the arrow has types
     var validType = function (ty) { return ty !== null && ty !== undefined };
@@ -408,12 +418,14 @@ define([ 'core/datatypes'
       };
     }
 
-    // if return type is a variable, look it up in the solution
-    // FIXME: this is a shaky way of checking if type variable...
-    var returnType = solution.get(arrow.returnType);
+    return solution;
 
-    // create return signal
-    return new Signal.Signal(returnType);
+    // // if return type is a variable, look it up in the solution
+    // // FIXME: this is a shaky way of checking if type variable...
+    // var returnType = solution.get(arrow.returnType);
+
+    // // create return signal
+    // return new Signal.Signal(returnType);
   }
 
   return {
