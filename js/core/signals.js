@@ -68,11 +68,22 @@ define([ 'core/datatypes'
     } 
   }
 
+  // Queue of signal IDs awaiting value updates; most recent change is at end of list.
+  var updated = [];
+
+  // Maps signal IDs to a list of a push queue, with most recent at end of queue.
+  var valueBuffer = {};
+
   // Pushes `newValue` to be the next value of `sig`.
   function push (sig, newValue) {
     if (Type.isRefinement(newValue.type, sig.type)) {
-      sig.buffer.push(newValue);
-      didUpdate(sig);
+      // sig.buffer.push(newValue);
+      if (valueBuffer[sig.id] === undefined) {
+        valueBuffer[sig.id] = [];
+      } 
+      valueBuffer[sig.id].push(newValue);
+
+      updated.push(sig);
     } else {
       throw new Error('Failed typecheck');
     }
@@ -113,48 +124,64 @@ define([ 'core/datatypes'
     });
   }
 
+  var running = true;
+
   // ----- Helper functions ----- //
 
-  // Queue of signals awaiting value updates; most recent change is at end of list.
-  var updated = [];
-
-  // Called when `sig`'s value is updated.
-  function didUpdate (sig) {
-    updated.push(sig);
-  }
-
   function flushUpdated () {
-    // debugger;
+    console.log('num updates', updated.length);
 
-    // Make a copy of `updated` so that we have a fixed-size queue.
+    // DEBUG: auto exit
+    if (updated.length > 2000) {
+      running = false;
+    }
+
+    // Make a copy of `updated` and `valueBuffer` so that we have a fixed-size queue.
     var updatedCopy = updated.slice();
-
     // Immediately clear `updated`, so that it can receive
     //   any new updates resulting from the flush.
     updated = []; 
 
-    // var updateCount = 0;
-    // var alreadyUpdated = {};
+    //// ----- FOR "LAZY" VERSION
+    // // Copy and clear valueBuffer.
+    // var valueBufferCopy = _.mapObject(valueBuffer, function (val, key) { 
+    //   var r = val.slice();
+    //   delete valueBuffer[key];
+    //   return r;
+    // });
+    var valueBufferCopy = valueBuffer;
 
     _.each(updatedCopy, function (sig) {
-      if (sig.buffer.length > 0) {
-        // updateCount++;
+      //// ----- FOR "LAZY" VERSION (instead of below)
+      // if (valueBufferCopy[sig.id] !== undefined) {
+        // if (valueBufferCopy[sig.id].length > 1) {
+        //   // haven't arrived at most recent value
+        //   // so just pop and skip
+        //   valueBufferCopy[sig.id].shift();
+        // } else if (valueBufferCopy[sig.id].length < 1) {
+        //   // bad!
+        //   console.log('ran out of buffer', sig.id);
+        // } else {
+        //   sig.current = valueBufferCopy[sig.id][0];
+        //   delete valueBufferCopy[sig.id];
+        //   performCallbacks(sig);
+        // }
+      // }
 
-        // Grab most recent value.
-        var next = sig.buffer.pop();
-
-        // Set signal to the most recent value.
-        sig.current = next;
-
-        // Clear buffer.
-        sig.buffer = [];
-
-        // Perform signal callbacks with this value.
-        performCallbacks(sig);
+      if (valueBufferCopy[sig.id].length > 0) {
+        var next = valueBufferCopy[sig.id].shift();
+        valueBufferCopy[sig.id] = [];
+        if (sig.current !== next) {
+          sig.current = next;
+          performCallbacks(sig);
+        }
       }
+
     });
 
-    window.requestAnimationFrame(flushUpdated);
+    if (running) {
+      window.requestAnimationFrame(flushUpdated);
+    }
   }
 
   window.requestAnimationFrame(flushUpdated);

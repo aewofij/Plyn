@@ -182,7 +182,8 @@ define([ 'core/signals'
   var positionInput = ArrowNode.InputNode(xform.signals.Transform.position);
   var positionOutput2 = ArrowNode.OutputNode(xform.signals.Transform.position);
 
-  var vecDiffArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+  var vecDiffArrow = StdArrows.vectorExpression()
+                              .setParameter('expression', function (vec1, vec2) {
     return {
       x: vec2.x - vec1.x,
       y: vec2.y - vec1.y
@@ -190,18 +191,20 @@ define([ 'core/signals'
   });
   var vecDiff = ArrowNode.ArrowNode(vecDiffArrow);
 
-  var vecScaleArrow = StdArrows.vectorExpression().setParameter('expression', function (vec) {
+  var vecScaleArrow = StdArrows.vectorExpression()
+                               .setParameter('expression', function (vec) {
     return {
-      x: vec.x * -0.01,
-      y: vec.y * -0.01
+      x: vec.x * 0.1,
+      y: vec.y * 0.1
     };
   });
   var vecScale = ArrowNode.ArrowNode(vecScaleArrow);
 
-  var vecAddArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+  var vecAddArrow = StdArrows.vectorExpression()
+                             .setParameter('expression', function (vec1, vec2) {
     var result = {
-      x: vec2.x + vec1.x,
-      y: vec2.y + vec1.y
+      x: vec2.x - vec1.x,
+      y: vec2.y - vec1.y
     };
     return result;
   });
@@ -223,12 +226,23 @@ define([ 'core/signals'
 
   */
   
-  recursive.connect(positionInput, {node: vecDiff, inlet: 1});
-  recursive.connect(mouseInput2, {node: vecDiff, inlet: 0});
-  recursive.connect(vecDiff, {node: vecScale, inlet: 0});
-  recursive.connect(vecScale, {node: vecAdd, inlet: 0});
-  recursive.connect(positionInput, {node: vecAdd, inlet: 1});
-  recursive.connect(vecAdd, {node: positionOutput2, inlet: 0});
+  recursive.connect(mouseInput2,    {node: vecDiff,         
+                                    inlet: 0});
+  
+  recursive.connect(positionInput,  {node: vecDiff,         
+                                    inlet: 1});
+
+  recursive.connect(vecDiff,        {node: vecScale,        
+                                    inlet: 0});
+
+  recursive.connect(vecScale,       {node: vecAdd,          
+                                    inlet: 0});
+
+  recursive.connect(positionInput,  {node: vecAdd,          
+                                    inlet: 1});
+
+  recursive.connect(vecAdd,         {node: positionOutput2, 
+                                    inlet: 0});
 
   // ------- END RECURSIVE BEHAVIOR ------- //
 
