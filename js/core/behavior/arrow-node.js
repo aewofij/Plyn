@@ -22,14 +22,21 @@ define([ 'arrows/std-arrows'
        , 'core/datatypes'
        , 'util/objutil' ], 
        function (StdArrows, Signal, Arrow, Type, ObjUtil) {
-  function ArrowNode (arrow, id) {
-    var _id = (id === undefined) ? nextId() : id;
+  function ArrowNode (arrow, options) {
+    var _id = (options == undefined || options.id === undefined) ? nextId() : options.id;
+
 
     var result = Object.create(ArrowNode.prototype, {
       id: {
         enumerable: true,
         writable: false,
         value: _id
+      },
+
+      name: {
+        enumerable: true,
+        writable: false,
+        value: options != undefined ? options.name : null
       },
 
       // underlying `Arrow`
@@ -99,6 +106,7 @@ define([ 'arrows/std-arrows'
       var createInlets = function (node, _, inputTypes) {
         var inputTypes = node.arrow.inputTypes;
         var inletList = [];
+
         for (var i = 0; i < inputTypes.length; i++) {
           inletList[i] = node.inlets[i] === undefined ? null : node.inlets[i];
         }
@@ -113,6 +121,13 @@ define([ 'arrows/std-arrows'
 
   ArrowNode.prototype = Object.create(Object.prototype, {
     id: {
+      enumerable: true,
+      writable: false,
+      value: null
+    },
+
+    // user-supplied name
+    name: {
       enumerable: true,
       writable: false,
       value: null
@@ -181,9 +196,9 @@ define([ 'arrows/std-arrows'
     },
   });
 
-  function InputNode (inputSig) {
+  function InputNode (inputSig, options) {
     var id = nextId();
-    var outArrow = Arrow.OutputArrow();
+    var outArrow = StdArrows.outputArrow();
     if (inputSig !== undefined) {
       outArrow.setParameter('signal', inputSig);
     }
@@ -194,6 +209,12 @@ define([ 'arrows/std-arrows'
         enumerable: true,
         writable: false,
         value: id
+      },
+
+      name: {
+        enumerable: true,
+        writable: false,
+        value: options != undefined ? options.name : null
       },
 
       // underlying `Arrow`
@@ -269,7 +290,7 @@ define([ 'arrows/std-arrows'
     });
   }
 
-  function OutputNode (outputSig) {
+  function OutputNode (outputSig, options) {
     var arrow = StdArrows.pushTo();
     if (outputSig !== undefined) {
       arrow.setParameter('signal', outputSig);

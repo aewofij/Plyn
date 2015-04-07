@@ -124,7 +124,7 @@
             selected="nodeKind" 
             flex>
             <div id="nodeKind">
-              {{node.model.arrow.name}}
+              {{node.model.name != null ? node.model.name : node.model.arrow.name}}
             </div>
             <div id="editNodeKind">
               <input id="editNodeKindInput" 

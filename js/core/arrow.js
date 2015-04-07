@@ -4,10 +4,13 @@ Describes a function from Signal a [x Signal a_1 x ...] -> Signal b.
 
 define([ 'core/datatypes'
        , 'core/data' 
-       , 'core/signals' 
+       , 'core/signals'
+       , 'core/util/std-signals'
        , 'util/objutil'
-       , 'util/listutil' ], 
-       function (Type, Data, Signal, ObjUtil, ListUtil) {
+       , 'util/listutil'
+       , 'underscore' ], 
+       function (Type, Data, Signal, StdSignals, 
+                 ObjUtil, ListUtil, _) {
   /* Constructs an `Arrow` signal function.
    *
    * inputTypes : [ Type ]
@@ -241,6 +244,8 @@ define([ 'core/datatypes'
 
   /* Create an arrow with a signal transformation or subscription paradigm.
    * 
+   * subscriptions : [[(<signal value>, <output signal>, [<input signal>) -> ()]]]
+   *                 where subscriptions[0] is a list of subscriptions for inlet 0.
    */
   function SignalArrow (name, parameters, inputTypes, returnType, subscriptions) {
     return Object.create(Arrow.prototype, {
@@ -262,22 +267,12 @@ define([ 'core/datatypes'
         enumerable: true,
         writable: true,
         value: inputTypes
-        // get: function () { 
-        //   return ((inputTypes instanceof Function) 
-        //           ? inputTypes.call(this) 
-        //           : inputTypes) 
-        // }
       },
 
       returnType: {
         enumerable: true,
         writable: true,
         value: returnType
-        // get: function () { 
-        //   return ((returnType instanceof Function) 
-        //           ? returnType.call(this) 
-        //           : returnType) 
-        // }
       },
       
       plug: {
@@ -289,7 +284,7 @@ define([ 'core/datatypes'
           var unplugs = subscriptions.reduce(function (prev, subToInput, idx) {
             return prev.concat(subToInput.map(function (sub) {
               return Signal.subscribe(inputs[idx], function (v) {
-                return sub(resultSignal, v);
+                return sub(Signal.pull(inputs[idx]), resultSignal, inputs);
               });
             }));
           }, []);
@@ -303,47 +298,12 @@ define([ 'core/datatypes'
           var pull = function () {
             inputs.forEach(function (sig, idx) {
               subscriptions[idx].forEach(function (sub) {
-                sub(resultSignal, Signal.pull(sig));
+                sub(Signal.pull(sig), resultSignal, inputs);
               });
             });
           }
 
           return ArrowInstance(resultSignal, unsubFn, inputs, pull);
-        }
-      }
-    });
-  }
-
-  /* Creates an arrow with no inputs, which simply outputs a signal.
-   */
-  function OutputArrow () {
-    return Object.create(Arrow.prototype, {
-      name: {
-        enumerable: true,
-        value: 'signal'
-      },
-      parameters: {
-        enumerable: true,
-        value: { signal: {type: ParameterType.signal, value: null} }
-      }, 
-      inputTypes: {
-        enumerable: true,
-        writable: true,
-        value: []
-      },
-      returnType: {
-        enumerable: true,
-        get: function () { return this.parameters.signal.value != null
-                                  ? this.parameters.signal.value.type
-                                  : Type.Variable('a') }
-      },
-      plug: {
-        enumerable: true,
-        value: function () {
-          return ArrowInstance(this.parameters.signal.value, 
-                               function () {}, 
-                               [], 
-                               function () { return Signal.pull(this.parameters.signal.value) });
         }
       }
     });
@@ -389,7 +349,7 @@ define([ 'core/datatypes'
 
     // type-check arguments
     var expectedTypes = arrow.inputTypes;
-    var actualTypes = inputs.map(ObjUtil.field('type'));
+    var actualTypes = inputs.map(_.property('type'));
 
     var constraints = ListUtil.map2(actualTypes, expectedTypes, Type.refined);
     var solution = Type.solve(constraints);
@@ -418,9 +378,9 @@ define([ 'core/datatypes'
 
   return {
     Arrow: Arrow,
+    ArrowInstance: ArrowInstance,
     EventArrow: EventArrow,
     SignalArrow: SignalArrow,
-    OutputArrow: OutputArrow,
     ParameterType: ParameterType
   };
 });

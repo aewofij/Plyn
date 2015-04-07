@@ -6,9 +6,49 @@ define([ 'core/arrow'
        , 'core/datatypes'
        , 'core/data'
        , 'core/signals'
+       , 'core/util/std-signals'
        , 'util/objutil'
        , 'util/vector2' ], 
-       function (Arrow, Type, Data, Signal, ObjUtil, Vector2) {
+       function (Arrow, Type, Data, Signal, StdSignals, ObjUtil, Vector2) {
+
+
+  /* Creates an arrow with no inputs, which simply outputs a signal.
+   */
+  function outputArrow () {
+    var result = Object.create(Arrow.Arrow.prototype, {
+      name: {
+        enumerable: true,
+        value: 'signal'
+      },
+      parameters: {
+        enumerable: true,
+        value: { signal: {type: Arrow.ParameterType.signal, value: null} }
+      }, 
+      inputTypes: {
+        enumerable: true,
+        writable: true,
+        value: []
+      },
+      returnType: {
+        enumerable: true,
+        get: function () { return this.parameters.signal.value != null
+                                  ? this.parameters.signal.value.type
+                                  : Type.Variable('a') }
+      },
+      plug: {
+        enumerable: true,
+        value: function () {
+          var self = this;
+          return Arrow.ArrowInstance(this.parameters.signal.value,
+                                     function () {}, 
+                                     [], 
+                                     function () { return Signal.pull(this.parameters.signal.value) });
+        }
+      }
+    });
+
+    return result;
+  }
 
   function numberExpression () {
     return Arrow.EventArrow('number expression',
@@ -75,13 +115,24 @@ define([ 'core/arrow'
   /* Merges two Signals together - whenever either input signal
    *   updates, the output signal will update.
    */
-  var merge = Arrow.SignalArrow('merge',
-                                {},
-                                [ Type.Variable ('a') 
-                                , Type.Variable ('b')  ],
-                                Type.Union (Type.Variable ('a'), Type.Variable ('b')),
-                                [[function (resultSig, v) { Signal.push(resultSig, v) }], 
-                                 [function (resultSig, v) { Signal.push(resultSig, v) }]]);
+  var merge = 
+    Arrow.SignalArrow('merge',
+                      {},
+                      [ Type.Variable ('a'), Type.Variable ('b') ],
+                      Type.Union (Type.Variable ('a'), Type.Variable ('b')),
+                      [[function (v, resultSig, inputs) { Signal.push(resultSig, v) }], 
+                       [function (v, resultSig, inputs) { Signal.push(resultSig, v) }]]);
+
+  /* Merges two Signals together - whenever either input signal
+   *   updates, the output signal will update.
+   */
+  var sampleOn = 
+    Arrow.SignalArrow('sampleOn',
+                      {},
+                      [ Type.Variable ('a'), Type.Variable ('b') ],
+                      Type.Variable ('b'),
+                      [[function (v, resultSig, inputs) { Signal.push(resultSig, Signal.pull(inputs[1])) }], 
+                       []]);
 
   /* Creates an arrow which folds over past values of a signal. 
    *
@@ -131,15 +182,6 @@ define([ 'core/arrow'
 
   // TODO: is there a nicer abstraction for mapping over signals than the full EventArrow?
 
-  // var sampleOn = new Arrow([_, (type a)], (type b), function (trigger, v) {
-  //   var result = new Signal((type b), undefined);
-
-  //   subscribe(trigger, function (triggerVal) {
-  //     result.push(v.current);  
-  //   });
-
-  //   return result;
-  // });
 
   // this needs to be a constructed, because of the `previousValue` field
   var filterRepeats = function () {
@@ -214,16 +256,17 @@ define([ 'core/arrow'
   }
 
   return {
+    outputArrow: outputArrow,
     numberExpression: numberExpression,
     vectorExpression: vectorExpression,
     merge: merge,
     foldp: foldp,
     pushTo: pushTo,
+    sampleOn: sampleOn,
     // make fresh state each time
     get filterRepeats () { return filterRepeats() },
     matchType: matchType,
     buildRecord: buildRecord,
     fieldAccess: fieldAccess
-    // sampleOn: sampleOn,
   }
 });

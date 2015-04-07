@@ -15,79 +15,116 @@ require([ 'core/signals'
         , 'underscore'
         ], function (Signal, Type, Vector2, _) {
   Polymer('signal-scope', {
-    i: 0,
-
     observe: {
       width: 'dimensionsChanged',
       height: 'dimensionsChanged'
     },
 
+    gfx: undefined,
+    stage: undefined,
     width: 500,
     height: 500,
+    bgColor: "black",
+    // number of displayed samples
+    bufferSize: 30,
+    // time between samples in ms
+    sampleLength: 10,
     isDrawing: false,
+    isDrawingChanged: function () {
+      if (this.isDrawing) {
+        this.draw();
+      }
+    },
+    
+    /* maps signal ID to most recent sample values and max/mins
+     { 
+       <signal id>: {
+         values: [<sampled signal values>],
+         min: <current minimum encountered value>,
+         max: <current maximum encountered value>,
+         unsub: <unsubscribe function>
+       } 
+     }
+     */
+    signalInfo: {},
 
+    /* Disconnect all connected signals.
+     *
+     * stopDrawing : optional; true if scope should stop drawing after disconnecting
+     */
+    disconnectAll: function (stopDrawing) {
+      // _.mapObject(this.signalInfo, function (val, id) {
+      //   val.unsub();
+      // });
+      this.signalInfo = {};
+
+      if (stopDrawing !== undefined) {
+        this.isDrawing = !stopDrawing;
+      }
+    },
+
+    /* Connect the specified signal.
+     *
+     * sig : the Signal to connect
+     * startDrawing : optional; true if scope should start drawing after connect
+     */
     connectSignal: function (sig, startDrawing) {
       var self = this;
 
-      this.disconnectSignal();
-
-      this.currentMax = null;
-      this.currentMin = null;
-
-      if (Type.isRefinement(sig.type, Type.Number)) {
-        this.unsub = Signal.subscribe(sig, function (v) {
-          self.signal = v.val;
-        });
-      } else if (Type.isRefinement(sig.type, Vector2.type)) {
-        this.unsub = Signal.subscribe(sig, function (v) {
-          self.signal = v.val.x.val;
-        });
+      if (sig == null) {
+        return;
       }
+
+      if (this.signalInfo[sig.id] !== undefined) {
+        // already has this signal
+        // still need to start drawing if user wants
+        if (startDrawing !== undefined) {
+          this.isDrawing = startDrawing;
+        }
+        return;
+      } 
+
+      this.signalInfo[sig.id] = {
+        signal: sig,
+        values: [],
+        min: null,
+        max: null,
+        displayFunction: this.mkDisplayFn(sig.type)
+      };
+
+      // if (Type.isRefinement(sig.type, Type.Number)) {
+      //   this.signalInfo[sig.id].unsub = Signal.subscribe(sig, function (v) {
+      //     self.signal = v.val;
+      //   });
+      // } 
+      // else if (Type.isRefinement(sig.type, Vector2.type)) {
+      //   this.unsub = Signal.subscribe(sig, function (v) {
+      //     self.signal = v.val.x.val;
+      //   });
+      // }
 
       if (startDrawing !== undefined && startDrawing) {
         this.isDrawing = startDrawing;
       }
     },
 
-    disconnectSignal: function (stopDrawing) {
-      if (this.unsub != null) {
-        this.unsub();
-        this.unsub = null;
+    disconnectSignal: function (signal, stopDrawing) {
+      if (this.signalInfo[signal.id] === undefined) {
+        // signal is not connected,
+        // still need to listen to stopDrawing
+        if (stopDrawing !== undefined) {
+          this.isDrawing = !stopDrawing;
+        }
+        return;
       }
+
+      this.signalInfo[signal.id].unsub();
+      delete this.signalInfo[signal.id];
+
       if (stopDrawing !== undefined) {
         this.isDrawing = !stopDrawing;
       }
     },
-
-    bgColor: "black",
-
-    gfx: undefined,
-
-    stage: undefined,
-
-    isDrawingChanged: function () {
-      if (this.isDrawing) {
-        this.redraw();
-      }
-    },
-
-    // time between samples in ms
-    sampleLength: 10,
-
-    // function to call to unsubscribe from connected signal
-    unsub: null,
-
-    // value to be sampled
-    signal: 0,
-
-    // most recent sample values
-    buffer: [],
-
-    // number of displayed samples
-    bufferSize: 30,
-
-    currentMin: null,
-    currentMax: null,
 
     dimensionsChanged: function () {
       var width = this.offsetWidth;
@@ -114,9 +151,10 @@ require([ 'core/signals'
       this.setupCanvas(this.width, this.height, 0x000000);
       window.setInterval(this.sample.bind(this), this.sampleLength);
 
-      Object.observe({ width: this.style.width, height: this.style.height }, function (name, obj, type) {
-        console.log('changed', name, obj, type);
-      });
+      // Object.observe({ width: this.style.width, height: this.style.height }, 
+      //                function (name, obj, type) {
+      //   console.log('changed', name, obj, type);
+      // });
     },
 
     setupCanvas: function (width, height, bgColor) {
@@ -132,55 +170,112 @@ require([ 'core/signals'
       this.gfx.width = width;
       this.gfx.height = height;
 
-      window.requestAnimationFrame(this.redraw.bind(this));
+      window.requestAnimationFrame(this.draw.bind(this));
     },
 
 
-    // pushes the newest sample onto the result stack
+    // samples all connected signals
     sample: function () {
-      this.buffer.unshift(this.signal);
-      this.buffer = this.buffer.slice(0, this.bufferSize+1);
+      this.signalInfo = _.mapObject(this.signalInfo, function (info, id) {
+        var newValue = info.displayFunction(Signal.pull(info.signal));
+        info.values.unshift(newValue);
+        info.values.slice(0, this.bufferSize + 1);
 
-      if (this.currentMax == null || this.signal > this.currentMax) {
-        this.currentMax = this.signal;
-      }
-      if (this.currentMin == null || this.signal < this.currentMin) {
-        this.currentMin = this.signal;
+        if (info.max == null || newValue > info.max) {
+          info.max = newValue;
+        }
+        if (info.min == null || newValue < info.min) {
+          info.min = newValue;
+        }
+      });
+
+      // this.buffer.unshift(this.signal);
+      // this.buffer = this.buffer.slice(0, this.bufferSize+1);
+
+      // if (this.currentMax == null || this.signal > this.currentMax) {
+      //   this.currentMax = this.signal;
+      // }
+      // if (this.currentMin == null || this.signal < this.currentMin) {
+      //   this.currentMin = this.signal;
+      // }
+    },
+
+    // returns a function to format Data to a number for display
+    mkDisplayFn: function (type) {
+      if (Type.isRefinement(type, Type.Number)) {
+        return function (numData) {
+          return numData.val;
+        };
+      } else {
+        // unsupported type
+        return function (data) {
+          return -1;
+        }
       }
     },
 
-    // redraws scope with current buffer
-    redraw: function() {
+    // draws scope with current buffer
+    draw: function() {
+      var self = this;
+
       this.gfx.clearRect(0, 0, this.stage.width, this.stage.height);
       this.gfx.fillStyle = this.bgColor;
       this.gfx.beginPath();
       this.gfx.rect(0, 0, this.stage.width, this.stage.height);
       this.gfx.fill();
 
-      this.gfx.strokeStyle = "white";
+      // calculate some things outside of loop
+      var yDisplacement = this.stage.height / 2;
+      console.log(this.signalInfo);
 
-      if (this.buffer.length > 1) {
-        var segmentWidth = this.stage.width / (this.buffer.length - 1);
-        var yDisplacement = this.stage.height / 2;
-        // var maxY = Math.max.apply(null, this.buffer.map(function (elm) { return Math.abs(elm) }));
-        var range = this.currentMax - this.currentMin;
-        var yScale = (range === 0 ? 0 : (1 / range)) * (this.stage.height);
+      _.each(_.values(this.signalInfo), function (info) {
+        self.gfx.strokeStyle = 'white';
 
-        var drawSegment = (function (elm, idx, arr) {
-          if (idx !== 0) {
-            this.gfx.lineTo(idx * segmentWidth, (arr[idx] - this.currentMin) * yScale);
-            this.gfx.stroke();
-          }
-        }).bind(this);
+        if (info.values.length > 1) {
+          var segmentWidth = self.stage.width / (info.values.length - 1);
+          var range = info.max - info.min;
+          var yScale = (range === 0 ? 0 : (1 / range)) * (self.stage.height);
 
-        // start pen at first element
-        this.gfx.moveTo(0, this.buffer[0] * yScale + yDisplacement);
-        this.buffer.forEach(drawSegment);
+          var drawSegment = (function (elm, idx, arr) {
+            if (idx !== 0) {
+              self.gfx.lineTo(idx * segmentWidth, (arr[idx] - info.min) * yScale);
+              self.gfx.stroke();
+            }
+          }).bind(self);
 
-        if (this.isDrawing) {
-          window.requestAnimationFrame(this.redraw.bind(this));
+          // start pen at first element
+          self.gfx.moveTo(0, info.values[0] * yScale + yDisplacement);
+          self.buffer.forEach(drawSegment);
+
         }
+      });
+      if (this.isDrawing) {
+        window.requestAnimationFrame(this.draw.bind(this));
       }
+
+      // this.gfx.strokeStyle = "white";
+
+      // if (this.buffer.length > 1) {
+      //   var segmentWidth = this.stage.width / (this.buffer.length - 1);
+      //   var yDisplacement = this.stage.height / 2;
+      //   var range = this.currentMax - this.currentMin;
+      //   var yScale = (range === 0 ? 0 : (1 / range)) * (this.stage.height);
+
+      //   var drawSegment = (function (elm, idx, arr) {
+      //     if (idx !== 0) {
+      //       this.gfx.lineTo(idx * segmentWidth, (arr[idx] - this.currentMin) * yScale);
+      //       this.gfx.stroke();
+      //     }
+      //   }).bind(this);
+
+      //   // start pen at first element
+      //   this.gfx.moveTo(0, this.buffer[0] * yScale + yDisplacement);
+      //   this.buffer.forEach(drawSegment);
+
+      //   if (this.isDrawing) {
+      //     window.requestAnimationFrame(this.draw.bind(this));
+      //   }
+      // }
     }
   });
 })});

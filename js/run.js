@@ -7,6 +7,7 @@ define([ 'core/signals'
         , 'core/scene'
         , 'core/behavior/arrow-node'
         , 'core/behavior/behavior'
+        , 'core/util/std-signals'
         , 'arrows/std-arrows'
         , 'modules/transform'
         , 'modules/geometry'
@@ -21,8 +22,8 @@ define([ 'core/signals'
         , 'physicsjs/geometries/rectangle'
         ], function ( Signal, Action, Arrow, Datatype, 
                       Data, Obj, Scene, ArrowNode, Behavior, 
-                      StdArrows, Transform, Geometry, Time, Mouse,
-                      Vector2, ObjUtil, Physics ) {
+                      StdSignals, StdArrows, Transform, Geometry, 
+                      Time, Mouse, Vector2, ObjUtil, Physics ) {
   var scene = new Scene.Scene();
   var obj = scene.addObject('Box object');
   var circle = scene.addObject('Circle object');
@@ -34,21 +35,35 @@ define([ 'core/signals'
 
   // ------- START SUPER SIMPLE BEHAVIOR ------- //
 
-  var superSimple = Behavior.Behavior('Super simple');
-  scene.addBehavior(superSimple);
+  // var superSimple = Behavior.Behavior('Super simple');
+  // scene.addBehavior(superSimple);
 
-  var ssMouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
-  var ssPositionOutput = ArrowNode.OutputNode(xform.signals.Transform.position);
+  // var ssMouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
+  // var ssPositionOutput = ArrowNode.OutputNode(xform.signals.Transform.position);
 
-  superSimple.connect(ssMouseInput, { node: ssPositionOutput, inlet: 0 });
+  // superSimple.addNode(ssMouseInput)
+  //            .addNode(ssPositionOutput);
 
-  Signal.subscribe(maus.signals.Mouse.position, function (v) {
-    console.log('mouse moved', v);
-  })
+  // superSimple.connect(ssMouseInput, { node: ssPositionOutput, inlet: 0 });
 
-  Signal.subscribe(xform.signals.Transform.position, function (v) {
-    console.log('obj moved', v);
-  })
+  // ------- START SAMPLE BEHAVIOR ------- //
+
+  // var sampleBeh = Behavior.Behavior('Sample behavior');
+  // scene.addBehavior(sampleBeh);
+
+  // var smplMouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
+  // var smplSample = ArrowNode.ArrowNode(StdArrows.sampleOn);
+  // var smplClock = ArrowNode.InputNode(StdSignals.clock(500));
+  // var smplPositionOutput = ArrowNode.OutputNode(xform.signals.Transform.position);
+
+  // sampleBeh.addNode(smplMouseInput)
+  //          .addNode(smplSample)
+  //          .addNode(smplClock)
+  //          .addNode(smplPositionOutput);
+
+  // sampleBeh.connect(smplMouseInput, { node: smplSample, inlet: 1 });
+  // sampleBeh.connect(smplClock, { node: smplSample, inlet: 0 });
+  // sampleBeh.connect(smplSample, { node: smplPositionOutput, inlet: 0 });
 
   // ------- START MOVE BOX BEHAVIOR ------- //
 
@@ -177,62 +192,75 @@ define([ 'core/signals'
 
   // ------- START RECURSIVE BEHAVIOR ------- //
 
-  // var recursive = Behavior.Behavior('Recursive nudge');
-  // scene.addBehavior(recursive);
+  var recursive = Behavior.Behavior('Recursive nudge');
+  scene.addBehavior(recursive);
 
-  // var mouseInput2 = ArrowNode.InputNode(maus.signals.Mouse.position);
-  // var positionInput = ArrowNode.InputNode(xform.signals.Transform.position);
-  // var positionOutput2 = ArrowNode.OutputNode(xform.signals.Transform.position);
+  var mouseInput2 = ArrowNode.InputNode(maus.signals.Mouse.position, {name: 'Mouse input'});
+  var positionInput = ArrowNode.InputNode(xform.signals.Transform.position, {name: 'Position input'});
+  var positionOutput2 = ArrowNode.OutputNode(xform.signals.Transform.position, {name: 'Position output'});
 
-  // var vecDiffArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
-  //   return {
-  //     x: vec2.x - vec1.x,
-  //     y: vec2.y - vec1.y
-  //   };
-  // });
-  // var vecDiff = ArrowNode.ArrowNode(vecDiffArrow);
+  var recClock = ArrowNode.InputNode(StdSignals.clock(1), {name: 'Clock'});
+  var sampleOn1 = ArrowNode.ArrowNode(StdArrows.sampleOn, {name: 'Position sample'});
+  var sampleOn2 = ArrowNode.ArrowNode(StdArrows.sampleOn, {name: 'Mouse sample'});
 
-  // var vecScaleArrow = StdArrows.vectorExpression().setParameter('expression', function (vec) {
-  //   return {
-  //     x: vec.x * 0.6,
-  //     y: vec.y * 0.6
-  //   };
-  // });
-  // var vecScale = ArrowNode.ArrowNode(vecScaleArrow);
+  var vecDiffArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+    return {
+      x: vec2.x - vec1.x,
+      y: vec2.y - vec1.y
+    };
+  });
+  var vecDiff = ArrowNode.ArrowNode(vecDiffArrow, {name: 'Vector diff'});
 
-  // var vecAddArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
-  //   var result = {
-  //     x: vec2.x + vec1.x,
-  //     y: vec2.y + vec1.y
-  //   };
-  //   return result;
-  // });
-  // var vecAdd = ArrowNode.ArrowNode(vecAddArrow);
+  var vecScaleArrow = StdArrows.vectorExpression().setParameter('expression', function (vec) {
+    return {
+      x: vec.x * -0.0000001,
+      y: vec.y * -0.0000001
+    };
+  });
+  var vecScale = ArrowNode.ArrowNode(vecScaleArrow, {name: 'Vector scale'});
 
-  // recursive.addNode(mouseInput2)
-  //          .addNode(positionInput)
-  //          .addNode(positionOutput2)
-  //          .addNode(vecDiff)
-  //          .addNode(vecScale)
-  //          .addNode(vecAdd);
+  var vecAddArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+    var result = {
+      x: vec2.x + vec1.x,
+      y: vec2.y + vec1.y
+    };
+    return result;
+  });
+  var vecAdd = ArrowNode.ArrowNode(vecAddArrow, {name: 'Vector add'});
+
+  recursive.addNode(mouseInput2)
+           .addNode(positionInput)
+           .addNode(positionOutput2)
+           .addNode(recClock)
+           .addNode(sampleOn1)
+           .addNode(sampleOn2)
+           .addNode(vecDiff)
+           .addNode(vecScale)
+           .addNode(vecAdd);
 
   // recursive.connect(positionInput, {node: vecDiff, inlet: 0});
   // recursive.connect(mouseInput2, {node: vecDiff, inlet: 1});
-  // recursive.connect(vecDiff, {node: vecScale, inlet: 0});
-  // recursive.connect(vecScale, {node: vecAdd, inlet: 0});
-  // recursive.connect(mouseInput2, {node: vecAdd, inlet: 1});
-  // recursive.connect(vecAdd, {node: positionOutput2, inlet: 0});
+  recursive.connect(recClock, {node: sampleOn1, inlet: 0});
+  recursive.connect(recClock, {node: sampleOn2, inlet: 0});
+  recursive.connect(positionInput, {node: sampleOn1, inlet: 1});
+  // recursive.connect(mouseInput2, {node: sampleOn2, inlet: 1});
+  recursive.connect(sampleOn1, {node: vecDiff, inlet: 0});
+  recursive.connect(mouseInput2, {node: vecDiff, inlet: 1});
+  recursive.connect(vecDiff, {node: vecScale, inlet: 0});
+  recursive.connect(vecScale, {node: vecAdd, inlet: 0});
+  recursive.connect(mouseInput2, {node: vecAdd, inlet: 1});
+  recursive.connect(vecAdd, {node: positionOutput2, inlet: 0});
   
   // ------- END RECURSIVE BEHAVIOR ------- //
 
   // ------- START SIMPLE RECURSIVE BEHAVIOR ------- //
 
   // var circleXform = new Transform(circle);
-  // var circleGeom = new Geometry.Circle(circle);
+  // var circleGeom = new Geometry(circle);
   // var circleXform = new Transform(circle);
 
-  // // var sr = Behavior.Behavior('Simple recursive');
-  // // scene.addBehavior(sr);
+  // var sr = Behavior.Behavior('Simple recursive');
+  // scene.addBehavior(sr);
 
   // var positionInputSR = ArrowNode.InputNode(xform.signals.Transform.position);
   // var positionOutputSR = ArrowNode.OutputNode(xform.signals.Transform.position);
@@ -246,8 +274,8 @@ define([ 'core/signals'
   //                                                }
   //                                              }));
 
-  // moveBoxBehavior.connect(positionInputSR, { node: nudgeNode, inlet: 0 });
-  // moveBoxBehavior.connect(nudgeNode, { node: positionOutputSR, inlet: 0 });
+  // sr.connect(positionInputSR, { node: nudgeNode, inlet: 0 });
+  // sr.connect(nudgeNode, { node: positionOutputSR, inlet: 0 });
 
   // ------- END SIMPLE RECURSIVE BEHAVIOR ------- //
 
