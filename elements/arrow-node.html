@@ -415,6 +415,7 @@
             // TODO: publish and control in behavior-field
             window.addEventListener('keydown', function (evt) {
               if (evt.keyIdentifier === "Shift") {
+                self.$.scope.disconnectAll();
                 self.$.scope.connectSignal(self.node.model.signal, true);
 
                 // start drawing on scope
@@ -433,7 +434,7 @@
 
                 // stop drawing on scope
                 // self.$.scope.isDrawing = false;
-                self.$.scope.disconnectSignal(true);
+                self.$.scope.disconnectAll(true);
               }
             });
 

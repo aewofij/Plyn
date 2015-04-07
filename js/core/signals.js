@@ -20,6 +20,8 @@ define([ 'core/datatypes'
     this.type = type;
     this.callbacks = {};
 
+    this.id = nextSignalId();
+
     var callbackIdCounter = 0;
     this.nextCallbackId = function () {
       return (++callbackIdCounter).toString();
@@ -41,6 +43,11 @@ define([ 'core/datatypes'
         throw new Error('Failed typecheck');
       }
     }
+  }
+  
+  var signalIdCounter = 0;
+  function nextSignalId () {
+    return ('Signal' + signalIdCounter++);
   }
 
   // Pushes `newValue` to be the next value of `sig`.
