@@ -198,6 +198,13 @@ define([ 'arrows/std-arrows'
 
   function InputNode (inputSig, options) {
     var id = nextId();
+    
+    if (options !== undefined) {
+      if (options.name !== undefined) {
+        this.name = options.name;
+      }
+    }
+
     var outArrow = StdArrows.outputArrow();
     if (inputSig !== undefined) {
       outArrow.setParameter('signal', inputSig);
@@ -292,6 +299,13 @@ define([ 'arrows/std-arrows'
 
   function OutputNode (outputSig, options) {
     var arrow = StdArrows.pushTo();
+
+    if (options !== undefined) {
+      if (options.name !== undefined) {
+        this.name = options.name;
+      }
+    }
+
     if (outputSig !== undefined) {
       arrow.setParameter('signal', outputSig);
     }

@@ -133,13 +133,14 @@
                 placeholder="new node"
                 committedValue="{{committedNodeKind}}">
               <template repeat="{{parameter in formatParameters(node.model.arrow.parameters)}}">
-                <div>{{type}}</div>
                 <template if="{{parameter.type == 'signal'}}">
-                  
+                  <div>signal</div>
                 </template>
                 <template if="{{parameter.type == 'type'}}">
+                  <div>type</div>
                 </template>
                 <template if="{{parameter.type == 'script'}}">
+                  <div>script</div>
                 </template>
               </template>
             </div>

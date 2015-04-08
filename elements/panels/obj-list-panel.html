@@ -51,7 +51,7 @@
       },
 
       inspect: function (evt, dtl, sndr) {
-        this.$.scope.disconnectSignal(true);
+        this.$.scope.disconnectAll();
         this.$.scope.connectSignal(dtl.signal, true);
 
         var actualStyle = window.getComputedStyle(this.$.scope, null);

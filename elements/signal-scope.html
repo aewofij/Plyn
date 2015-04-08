@@ -273,11 +273,8 @@ require([ 'core/signals'
 
           if (valueInfo.buffer.length > 1) {
             var drawSegment = (function (elm, idx, arr) {
-              if (idx !== 0) {
-                // console.log('lineto', idx * segmentWidth, (arr[idx] - overallMin) * yScale);
-                self.gfx.lineTo(idx * segmentWidth, (arr[idx] - overallMin) * yScale);
-                self.gfx.stroke();
-              }
+              self.gfx.lineTo(idx * segmentWidth, (arr[idx] - overallMin) * yScale);
+              self.gfx.stroke();
             }).bind(self);
 
             // start pen at first element

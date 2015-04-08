@@ -180,9 +180,6 @@ define([ 'core/arrow'
                             });
   }
 
-  // TODO: is there a nicer abstraction for mapping over signals than the full EventArrow?
-
-
   // this needs to be a constructed, because of the `previousValue` field
   var filterRepeats = function () {
     return Arrow.EventArrow('filter repeats',
@@ -199,6 +196,23 @@ define([ 'core/arrow'
                                this.previousValue == Signal.pull(inputs[0]);
                              });
   };
+
+  // TODO
+  // var delay = function () {
+  //   return Arrow.EventArrow('delay',
+  //                           { length: { type: Arrow.ParameterType.integer, value: 500 } },
+  //                           [ Type.Variable('a') ],
+  //                            Type.Variable('a'),
+  //                            function (v) {
+  //                              if (!Data.equal(this.previousValue, v)) {
+  //                                this.previousValue = v;
+  //                                return v;
+  //                              }
+  //                            },
+  //                            function (resultSignal, inputs) {
+  //                              this.previousValue == Signal.pull(inputs[0]);
+  //                            });
+  // };
 
   var matchType = function () {
     return Arrow.EventArrow('match type',
