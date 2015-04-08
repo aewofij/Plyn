@@ -25,13 +25,19 @@ define([ 'core/signals'
                       StdSignals, StdArrows, Transform, Geometry, 
                       Time, Mouse, Vector2, ObjUtil, Physics ) {
   var scene = new Scene.Scene();
+  var inputs = scene.addObject('Inputs');
   var obj = scene.addObject('Box object');
   var circle = scene.addObject('Circle object');
 
+  var maus = new Mouse(inputs);
+  var time = new Time(inputs);
+
   var geom = new Geometry(obj);
-  var maus = new Mouse(obj);
   var xform = new Transform(obj);
-  var time = new Time(obj);
+
+  var circleGeom = new Geometry(circle);
+  var circleXform = new Transform(circle);
+  // Signal.push(circleGeom.signals.RectGeometry.width, Data.Number(10));
 
   // ------- START SUPER SIMPLE BEHAVIOR ------- //
 
@@ -213,8 +219,8 @@ define([ 'core/signals'
 
   var vecScaleArrow = StdArrows.vectorExpression().setParameter('expression', function (vec) {
     return {
-      x: vec.x * -0.0000001,
-      y: vec.y * -0.0000001
+      x: vec.x * -0.6,
+      y: vec.y * -0.6
     };
   });
   var vecScale = ArrowNode.ArrowNode(vecScaleArrow, {name: 'Vector scale'});

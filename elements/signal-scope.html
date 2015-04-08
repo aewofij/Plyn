@@ -24,7 +24,7 @@ require([ 'core/signals'
     stage: undefined,
     width: 500,
     height: 500,
-    bgColor: "black",
+    bgColor: "#142D3B",
     // number of displayed samples
     bufferSize: 30,
     // time between samples in ms
@@ -36,6 +36,8 @@ require([ 'core/signals'
       }
     },
     
+    lineColors: [ '#F2AC72', '#F27290', '#F2E172', '#D25083' ],
+
     /* maps signal ID to most recent sample values and max/mins
      { 
        <signal id>: {
@@ -178,7 +180,7 @@ require([ 'core/signals'
       var self = this;
 
       _.mapObject(self.signalInfo, function (info, signalId) {
-        var newValues = info.displayFunction(Signal.pull(info.signal));
+        var newValues = info.displayFunction(Signal.pull(info.signal), info);
 
         _.mapObject(newValues, function(val, valueId) {
           info.values[valueId].buffer.unshift(val);
@@ -216,6 +218,18 @@ require([ 'core/signals'
                               , y: vecData.val.y.val };
                      }
         }
+      } else if (Type.isRefinement(type, Type.Boolean)) {
+        return {
+          valueIds: [ 'val' ],
+          translate: function (data, info) {
+                       return { val: data.val ? ((info.max == null) 
+                                                 ? 1 
+                                                 : (info.max * 0.8)) 
+                                              : ((info.max == null) 
+                                                ? 1 
+                                                : (info.max * 0.8)) };
+                     }
+        }
       } else {
         // unsupported type
         return {
@@ -233,6 +247,7 @@ require([ 'core/signals'
 
       self.gfx.clearRect(0, 0, self.stage.width, self.stage.height);
       self.gfx.fillStyle = self.bgColor;
+      self.gfx.strokeStyle = self.bgColor;
       self.gfx.beginPath();
       self.gfx.rect(0, 0, self.stage.width, self.stage.height);
       self.gfx.fill();
@@ -247,9 +262,14 @@ require([ 'core/signals'
       var range = overallMax - overallMin;
       var yScale = (range === 0 ? 0 : (1 / range)) * (self.stage.height);
 
+      var i = 0;
       _.mapObject(self.signalInfo, function (info, signalId) {
         _.mapObject(info.values, function (valueInfo, valueId) {
-          self.gfx.strokeStyle = 'white';
+          // self.gfx.strokeStyle = 'white';
+          var cIdx = i++ % self.lineColors.length;
+          console.log(self.lineColors[cIdx]);
+          var oldStroke = self.gfx.strokeStyle;
+          self.gfx.strokeStyle = self.lineColors[cIdx];
 
           if (valueInfo.buffer.length > 1) {
             var drawSegment = (function (elm, idx, arr) {
@@ -264,6 +284,7 @@ require([ 'core/signals'
             self.gfx.moveTo(0, valueInfo.buffer[0] * yScale + yDisplacement);
             valueInfo.buffer.forEach(drawSegment);
           }
+          self.gfx.strokeStyle = oldStroke;
         });
       });
 

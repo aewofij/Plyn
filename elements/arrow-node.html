@@ -5,6 +5,7 @@
 <link rel="import" href="../js/libs/core-input/core-input.html">
 <link rel="import" href="../js/libs/core-pages/core-pages.html">
 <link rel="import" href="../js/libs/core-icon/core-icon.html">
+<link rel="import" href="../js/libs/core-dropdown-menu/core-dropdown-menu.html">
 <link rel="import" href="signal-scope.html">
 
 <polymer-element name="arrow-node" attributes="node xpos ypos isSelected">
@@ -131,8 +132,15 @@
                 is="core-input" 
                 placeholder="new node"
                 committedValue="{{committedNodeKind}}">
-              <template repeat="{{formatParameters(node.model.arrow.parameters)}}">
+              <template repeat="{{parameter in formatParameters(node.model.arrow.parameters)}}">
                 <div>{{type}}</div>
+                <template if="{{parameter.type == 'signal'}}">
+                  
+                </template>
+                <template if="{{parameter.type == 'type'}}">
+                </template>
+                <template if="{{parameter.type == 'script'}}">
+                </template>
               </template>
             </div>
           </core-pages>

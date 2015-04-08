@@ -13,9 +13,14 @@ TODO: make push asynchronous, all signals update on change in clock signal?
 
 define([ 'core/datatypes'
        , 'bacon' ], function (Type, Bacon) {
-  // TODO: make this not use new
-  function Signal (type, initialVal, name) {
-    if (!(this instanceof Signal)) return new Signal(type, initialVal, name);
+  /*
+   * type : type of data held by this Signal
+   * intialVal : manually set first value on the stream
+   * name : user-supplied name, non-unique
+   * path : Object > Component > Property path for this signal
+   */
+  function Signal (type, initialVal, name, path) {
+    if (!(this instanceof Signal)) return new Signal(type, initialVal, name, path);
 
     this.type = type;
     this.callbacks = {};
@@ -35,13 +40,16 @@ define([ 'core/datatypes'
     if (initialVal !== undefined) {
       if (Type.isRefinement(initialVal.type, type)) {
         push(this, initialVal);
-        if (name !== undefined) {
-          this.name = name;
-        }
       } else {
         // TODO: better error
         throw new Error('Failed typecheck');
       }
+    }
+    if (name !== undefined) {
+      this.name = name;
+    }
+    if (path !== undefined) {
+      this.path = path;
     }
   }
   
