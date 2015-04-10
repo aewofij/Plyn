@@ -247,7 +247,7 @@ define([ 'core/datatypes'
    * subscriptions : [[(<signal value>, <output signal>, [<input signal>) -> ()]]]
    *                 where subscriptions[0] is a list of subscriptions for inlet 0.
    */
-  function SignalArrow (name, parameters, inputTypes, returnType, subscriptions) {
+  function SignalArrow (name, parameters, inputTypes, returnType, subscriptions, setup, teardown) {
     return Object.create(Arrow.prototype, {
       name: {
         enumerable: true,
@@ -279,12 +279,16 @@ define([ 'core/datatypes'
         enumerable: true,
         value: function () {
           var inputs = Array.prototype.slice.call(arguments);
+
           var resultSignal = checkPlug(this, inputs);
+          // var typeEnv = checkPlug(this, inputs);
+          // var resultSignal = Signal.Signal(typeEnv.get(returnType));
 
           var unplugs = subscriptions.reduce(function (prev, subToInput, idx) {
             return prev.concat(subToInput.map(function (sub) {
               return Signal.subscribe(inputs[idx], function (v) {
                 return sub(Signal.pull(inputs[idx]), resultSignal, inputs);
+                // return sub(resultSignal, v);
               });
             }));
           }, []);
@@ -292,18 +296,24 @@ define([ 'core/datatypes'
           // var unplugs = setupFunction.apply(this, [resultSignal].concat(inputs));
           var unsubFn = function () {
             unplugs.forEach(function (elm) { elm() });
+            teardown();
           };
 
 
           var pull = function () {
             inputs.forEach(function (sig, idx) {
               subscriptions[idx].forEach(function (sub) {
+                // sub(resultSignal, Signal.pull(sig));
                 sub(Signal.pull(sig), resultSignal, inputs);
               });
             });
           }
 
-          return ArrowInstance(resultSignal, unsubFn, inputs, pull);
+          var result = ArrowInstance(resultSignal, unsubFn, inputs, pull);
+          if (setup !== undefined) {
+            setup(result);
+          }
+          return result;
         }
       }
     });

@@ -112,6 +112,28 @@ define([ 'core/arrow'
                             });
   }
 
+  function differentiateVec () {
+    var setupFn = function (node) {
+      // signal |> sample |> delay |>> difference
+      var clock = StdSignals.clock(node.arrow.parameters.timeFrame.value);
+      sampleOn.plug(clock, node.signal);
+
+
+      node.signal
+    };
+    var teardownFn = function () {
+      // TODO
+    };
+
+    return Arrow.SignalArrow('differentiateVec',
+                            { timeFrame: { type: Arrow.ParameterType.integer, value: 2 } },
+                            [ Vector2.type ],
+                            Vector2.type,
+                            [[]],
+                            setupFn,
+                            teardownFn);
+  }
+
   /* Merges two Signals together - whenever either input signal
    *   updates, the output signal will update.
    */

@@ -35,16 +35,16 @@ define([ 'core/signals'
 
   // ------- START SUPER SIMPLE BEHAVIOR ------- //
 
-  // var superSimple = Behavior.Behavior('Super simple');
-  // scene.addBehavior(superSimple);
+  var superSimple = Behavior.Behavior('Super simple');
+  scene.addBehavior(superSimple);
 
-  // var ssMouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
-  // var ssPositionOutput = ArrowNode.OutputNode(xform.signals.Transform.position);
+  var ssMouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
+  var ssPositionOutput = ArrowNode.OutputNode(xform.signals.Transform.position);
 
-  // superSimple.addNode(ssMouseInput)
-  //            .addNode(ssPositionOutput);
+  superSimple.addNode(ssMouseInput)
+             .addNode(ssPositionOutput);
 
-  // superSimple.connect(ssMouseInput, { node: ssPositionOutput, inlet: 0 });
+  superSimple.connect(ssMouseInput, { node: ssPositionOutput, inlet: 0 });
 
   // ------- START SAMPLE BEHAVIOR ------- //
 
@@ -192,64 +192,64 @@ define([ 'core/signals'
 
   // ------- START RECURSIVE BEHAVIOR ------- //
 
-  var recursive = Behavior.Behavior('Recursive nudge');
-  scene.addBehavior(recursive);
+  // var recursive = Behavior.Behavior('Recursive nudge');
+  // scene.addBehavior(recursive);
 
-  var mouseInput2 = ArrowNode.InputNode(maus.signals.Mouse.position, {name: 'Mouse input'});
-  var positionInput = ArrowNode.InputNode(xform.signals.Transform.position, {name: 'Position input'});
-  var positionOutput2 = ArrowNode.OutputNode(xform.signals.Transform.position, {name: 'Position output'});
+  // var mouseInput2 = ArrowNode.InputNode(maus.signals.Mouse.position, {name: 'Mouse input'});
+  // var positionInput = ArrowNode.InputNode(xform.signals.Transform.position, {name: 'Position input'});
+  // var positionOutput2 = ArrowNode.OutputNode(xform.signals.Transform.position, {name: 'Position output'});
 
-  var recClock = ArrowNode.InputNode(StdSignals.clock(1), {name: 'Clock'});
-  var sampleOn1 = ArrowNode.ArrowNode(StdArrows.sampleOn, {name: 'Position sample'});
-  var sampleOn2 = ArrowNode.ArrowNode(StdArrows.sampleOn, {name: 'Mouse sample'});
+  // var recClock = ArrowNode.InputNode(StdSignals.clock(1), {name: 'Clock'});
+  // var sampleOn1 = ArrowNode.ArrowNode(StdArrows.sampleOn, {name: 'Position sample'});
+  // var sampleOn2 = ArrowNode.ArrowNode(StdArrows.sampleOn, {name: 'Mouse sample'});
 
-  var vecDiffArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
-    return {
-      x: vec2.x - vec1.x,
-      y: vec2.y - vec1.y
-    };
-  });
-  var vecDiff = ArrowNode.ArrowNode(vecDiffArrow, {name: 'Vector diff'});
+  // var vecDiffArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+  //   return {
+  //     x: vec2.x - vec1.x,
+  //     y: vec2.y - vec1.y
+  //   };
+  // });
+  // var vecDiff = ArrowNode.ArrowNode(vecDiffArrow, {name: 'Vector diff'});
 
-  var vecScaleArrow = StdArrows.vectorExpression().setParameter('expression', function (vec) {
-    return {
-      x: vec.x * -0.0000001,
-      y: vec.y * -0.0000001
-    };
-  });
-  var vecScale = ArrowNode.ArrowNode(vecScaleArrow, {name: 'Vector scale'});
+  // var vecScaleArrow = StdArrows.vectorExpression().setParameter('expression', function (vec) {
+  //   return {
+  //     x: vec.x * -0.0000001,
+  //     y: vec.y * -0.0000001
+  //   };
+  // });
+  // var vecScale = ArrowNode.ArrowNode(vecScaleArrow, {name: 'Vector scale'});
 
-  var vecAddArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
-    var result = {
-      x: vec2.x + vec1.x,
-      y: vec2.y + vec1.y
-    };
-    return result;
-  });
-  var vecAdd = ArrowNode.ArrowNode(vecAddArrow, {name: 'Vector add'});
+  // var vecAddArrow = StdArrows.vectorExpression().setParameter('expression', function (vec1, vec2) {
+  //   var result = {
+  //     x: vec2.x + vec1.x,
+  //     y: vec2.y + vec1.y
+  //   };
+  //   return result;
+  // });
+  // var vecAdd = ArrowNode.ArrowNode(vecAddArrow, {name: 'Vector add'});
 
-  recursive.addNode(mouseInput2)
-           .addNode(positionInput)
-           .addNode(positionOutput2)
-           .addNode(recClock)
-           .addNode(sampleOn1)
-           .addNode(sampleOn2)
-           .addNode(vecDiff)
-           .addNode(vecScale)
-           .addNode(vecAdd);
+  // recursive.addNode(mouseInput2)
+  //          .addNode(positionInput)
+  //          .addNode(positionOutput2)
+  //          .addNode(recClock)
+  //          .addNode(sampleOn1)
+  //          .addNode(sampleOn2)
+  //          .addNode(vecDiff)
+  //          .addNode(vecScale)
+  //          .addNode(vecAdd);
 
-  // recursive.connect(positionInput, {node: vecDiff, inlet: 0});
+  // // recursive.connect(positionInput, {node: vecDiff, inlet: 0});
+  // // recursive.connect(mouseInput2, {node: vecDiff, inlet: 1});
+  // recursive.connect(recClock, {node: sampleOn1, inlet: 0});
+  // recursive.connect(recClock, {node: sampleOn2, inlet: 0});
+  // recursive.connect(positionInput, {node: sampleOn1, inlet: 1});
+  // // recursive.connect(mouseInput2, {node: sampleOn2, inlet: 1});
+  // recursive.connect(sampleOn1, {node: vecDiff, inlet: 0});
   // recursive.connect(mouseInput2, {node: vecDiff, inlet: 1});
-  recursive.connect(recClock, {node: sampleOn1, inlet: 0});
-  recursive.connect(recClock, {node: sampleOn2, inlet: 0});
-  recursive.connect(positionInput, {node: sampleOn1, inlet: 1});
-  // recursive.connect(mouseInput2, {node: sampleOn2, inlet: 1});
-  recursive.connect(sampleOn1, {node: vecDiff, inlet: 0});
-  recursive.connect(mouseInput2, {node: vecDiff, inlet: 1});
-  recursive.connect(vecDiff, {node: vecScale, inlet: 0});
-  recursive.connect(vecScale, {node: vecAdd, inlet: 0});
-  recursive.connect(mouseInput2, {node: vecAdd, inlet: 1});
-  recursive.connect(vecAdd, {node: positionOutput2, inlet: 0});
+  // recursive.connect(vecDiff, {node: vecScale, inlet: 0});
+  // recursive.connect(vecScale, {node: vecAdd, inlet: 0});
+  // recursive.connect(mouseInput2, {node: vecAdd, inlet: 1});
+  // recursive.connect(vecAdd, {node: positionOutput2, inlet: 0});
   
   // ------- END RECURSIVE BEHAVIOR ------- //
 
