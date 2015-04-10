@@ -72,6 +72,24 @@ define([ 'core/arrow'
                             });
   }
 
+
+  // function differentiateVec () {
+  //   var setupFn = function (node) {
+
+  //   };
+  //   var teardownFn = function () {
+      
+  //   };
+
+  //   return Arrow.SignalArrow('differentiateVec',
+  //                           { timeFrame: { type: Arrow.ParameterType.integer, value: 2 } },
+  //                           [ Vector2.type ],
+  //                           Vector2.type,
+  //                           [[function (resultSig, v) { Signal.push(resultSig, v) }]],
+  //                           setupFn,
+  //                           teardownFn);
+  //  }
+
   /* Merges two Signals together - whenever either input signal
    *   updates, the output signal will update.
    */

@@ -248,7 +248,8 @@ define([ 'core/datatypes'
   /* Create an arrow with a signal transformation or subscription paradigm.
    * 
    */
-  function SignalArrow (name, parameters, inputTypes, returnType, subscriptions) {
+  function SignalArrow (name, parameters, inputTypes, returnType, 
+                        subscriptions, setup, teardown) {
     return Object.create(Arrow.prototype, {
       name: {
         enumerable: true,
@@ -305,6 +306,7 @@ define([ 'core/datatypes'
           // var unplugs = setupFunction.apply(this, [resultSignal].concat(inputs));
           var unsubFn = function () {
             unplugs.forEach(function (elm) { elm() });
+            teardown();
           };
 
 
@@ -316,7 +318,9 @@ define([ 'core/datatypes'
             });
           }
 
-          return ArrowInstance(resultSignal, unsubFn, inputs, pull);
+          var result = ArrowInstance(resultSignal, unsubFn, inputs, pull);
+          setup(result);
+          return result;
         }
       }
     });

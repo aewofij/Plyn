@@ -194,8 +194,8 @@ define([ 'core/signals'
   var vecScaleArrow = StdArrows.vectorExpression()
                                .setParameter('expression', function (vec) {
     return {
-      x: vec.x * 0.1,
-      y: vec.y * 0.1
+      x: vec.x * 0.01,
+      y: vec.y * 0.01
     };
   });
   var vecScale = ArrowNode.ArrowNode(vecScaleArrow);
