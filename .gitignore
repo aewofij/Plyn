@@ -1,1 +1,2 @@
-js/libs/**
+node_modules
+js/libs
