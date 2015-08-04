@@ -13,6 +13,13 @@ throughout a program, Plyn eschews the need to ingest and regurgitate an API:
 instead, Plyn encourages the user to create by experimentation and by "feeling
 his way" around the system.
 
+[thesis paper](http://david-lee.net/work/thesis.pdf)
+
+_DL: I put this project aside for a while, but I'm still interested in working on it.
+However, given my lack of experience with web apps when I wrote this version,
+there is a lot to be brought up to snuff. In the meantime, my apologies for any
+silliness._
+
 ## Running Plyn
 
 1. Clone repository.
