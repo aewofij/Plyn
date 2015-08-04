@@ -13,7 +13,6 @@ define([ 'core/signals'
         , 'modules/geometry'
         , 'modules/time'
         , 'modules/mouse'
-        , 'modules/osc-output'
         , 'util/vector2'
         , 'util/objutil'
         , 'physicsjs'
@@ -21,10 +20,13 @@ define([ 'core/signals'
         , 'physics/bodies/objbody'
         , 'physicsjs/bodies/rectangle'
         , 'physicsjs/geometries/rectangle'
+        // , 'modules/osc-output'
         ], function ( Signal, Action, Arrow, Datatype, 
                       Data, Obj, Scene, ArrowNode, Behavior, 
                       StdSignals, StdArrows, Transform, Geometry, 
-                      Time, Mouse, OscOutput, Vector2, ObjUtil, Physics ) {
+                      Time, Mouse, Vector2, ObjUtil, Physics
+                      // , OscOutput,
+                    ) {
   var scene = new Scene.Scene();
   var obj = scene.addObject('Box object');
   var circleObj = scene.addObject('Circle object');
@@ -41,11 +43,11 @@ define([ 'core/signals'
   var maus = new Mouse(inputsObj);
   var time = new Time(inputsObj);
 
-  var oscOut1 = new OscOutput(outputsObj, 'x');
-  var oscOut2 = new OscOutput(outputsObj, 'y');
-  var oscOut3 = new OscOutput(outputsObj, 'wave');
-  var oscOut3 = new OscOutput(outputsObj, 'x_circle');
-  var oscOut3 = new OscOutput(outputsObj, 'y_circle');
+  // var oscOut1 = new OscOutput(outputsObj, 'x');
+  // var oscOut2 = new OscOutput(outputsObj, 'y');
+  // var oscOut3 = new OscOutput(outputsObj, 'wave');
+  // var oscOut3 = new OscOutput(outputsObj, 'x_circle');
+  // var oscOut3 = new OscOutput(outputsObj, 'y_circle');
 
 
   // ------- START SUPER SIMPLE BEHAVIOR ------- //
@@ -333,14 +335,16 @@ define([ 'core/signals'
                                          .setParameter('expression', function (v1, v2) { return v1 + v2 }));
   var buildVec = ArrowNode.ArrowNode(StdArrows.buildRecord().setParameter('record type', Vector2.type), { name: 'build vector' });
 
-  var oscOutNode1 = ArrowNode.OutputNode(oscOut1.signals.OscOutput.output, { name: 'osc output' });
-  var oscOutNode2 = ArrowNode.OutputNode(oscOut2.signals.OscOutput.output, { name: 'osc output' });
-  var oscOutNode3 = ArrowNode.OutputNode(oscOut3.signals.OscOutput.output, { name: 'osc output' });
+  // var oscOutNode1 = ArrowNode.OutputNode(oscOut1.signals.OscOutput.output, { name: 'osc output' });
+  // var oscOutNode2 = ArrowNode.OutputNode(oscOut2.signals.OscOutput.output, { name: 'osc output' });
+  // var oscOutNode3 = ArrowNode.OutputNode(oscOut3.signals.OscOutput.output, { name: 'osc output' });
 
 
   sineMvmt.addNodes(mouseInput2, timeInput, positionOutput2, 
                     createSine, accessX, accessY, accessX2, accessY2, add, 
-                    buildVec, oscOutNode1, oscOutNode2, oscOutNode3);
+                    buildVec
+                    // , oscOutNode1, oscOutNode2, oscOutNode3
+                  );
 
   sineMvmt.connect(mouseInput2, { node: accessX, inlet: 0 });
   sineMvmt.connect(mouseInput2, { node: accessY, inlet: 0 });
@@ -358,7 +362,7 @@ define([ 'core/signals'
   sineMvmt.connect(buildVec, { node: accessY2, inlet: 0 });
   // sineMvmt.connect(accessX2, { node: oscOutNode1, inlet: 0 });
   // sineMvmt.connect(accessY2, { node: oscOutNode2, inlet: 0 });
-  sineMvmt.connect(createSine, { node: oscOutNode3, inlet: 0 });
+  // sineMvmt.connect(createSine, { node: oscOutNode3, inlet: 0 });
 
   // ------- END SYMP BEHAVIOR ------- //
 
