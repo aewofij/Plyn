@@ -90,7 +90,7 @@ define([ 'core/datatypes'
   function reflect (ontoSig, reflectedSig) {
     // When `reflectedSig` updates, push the updated value
     //   into `ontoSig`.
-    subscribe(reflectedSig, function (v) {
+    return subscribe(reflectedSig, function (v) {
       push(ontoSig, v);
     });
   }

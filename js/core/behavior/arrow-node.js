@@ -295,7 +295,12 @@ define([ 'arrows/std-arrows'
     if (outputSig !== undefined) {
       arrow.setParameter('signal', outputSig);
     }
-    return ArrowNode(arrow);
+    // if (options !== undefined) {
+    //   if (options.name !== undefined) {
+    //     this.name = options.name;
+    //   }
+    // }
+    return ArrowNode(arrow, options);
   }
 
   /* Connects a node's outlet to a specific inlet of another node.

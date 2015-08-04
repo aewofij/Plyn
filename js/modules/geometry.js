@@ -57,5 +57,38 @@ define([ 'core/components'
     });
   }
 
-  return RectGeometry;
+  CircleGeometry.prototype.componentType = 'CircleGeometry';
+  function CircleGeometry (ownerObj) {
+    // call super
+    Component.call(this, ownerObj);
+
+    this.requirements.concat(requirements);
+
+    this.signals[this.componentType] = {
+      radius: new Signal.Signal(Datatype.Number,
+                                  Data.Number (25))
+    };
+
+    this.actions[this.componentType] = {};
+
+
+    // ---- Modify backing object ---- //
+
+    ownerObj.body.components[this.componentType] = this;
+
+    ownerObj.body.geometry = Physics.geometry('circle', {
+      radius: this.signals[this.componentType].radius.current.val
+    });
+
+    // bind signals to backing object
+    // TODO: these don't seem to be reflecting in the render...
+    Signal.subscribe(this.signals[this.componentType].radius, function (v) {
+      ownerObj.body.geometry.options({ radius: v.val});
+    });
+  }
+
+  return {
+    Rect: RectGeometry,
+    Circle: CircleGeometry
+  };
 }); 

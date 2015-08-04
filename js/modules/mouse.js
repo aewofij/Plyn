@@ -83,7 +83,8 @@ define([ 'core/components'
   }
 
   function withPointInRect(pt, rect, proc) {
-    var scaled = { x: pt.x - rect.left, y: pt.y - rect.top };
+    var scaled = { x: pt.x - rect.left
+                 , y: pt.y - rect.top };
     return proc(scaled);
   }
 

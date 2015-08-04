@@ -238,7 +238,31 @@ define([ 'core/datatypes'
 
           return ArrowInstance(resultSignal, unsubFn, inputs, pull);
         }
-      }
+      },
+
+      /* setParameter : String -> <new value of corresponding parameter>
+       * Sets the specified parameter for this Arrow, 
+       *   calling the parameter's `changed` function if present.
+       */
+      setParameter: {
+        enumerable: true,
+        value: function (paramId, newValue) {
+          var param = this.parameters[paramId];
+          if (param !== null) {
+            // TODO: check type?
+            var oldValue = param.value;
+
+            // set value
+            param.value = newValue;
+
+            // if parameter has a `changed` function, run it
+            if (param['changed'] !== undefined) {
+              param['changed'].call(this, oldValue, newValue, this);
+            }
+          }
+          return this;
+        }
+      },
     });
   }
 
@@ -315,7 +339,31 @@ define([ 'core/datatypes'
           }
           return result;
         }
-      }
+      },
+
+      /* setParameter : String -> <new value of corresponding parameter>
+       * Sets the specified parameter for this Arrow, 
+       *   calling the parameter's `changed` function if present.
+       */
+      setParameter: {
+        enumerable: true,
+        value: function (paramId, newValue) {
+          var param = this.parameters[paramId];
+          if (param !== null) {
+            // TODO: check type?
+            var oldValue = param.value;
+
+            // set value
+            param.value = newValue;
+
+            // if parameter has a `changed` function, run it
+            if (param['changed'] !== undefined) {
+              param['changed'].call(this, oldValue, newValue, this);
+            }
+          }
+          return this;
+        }
+      },
     });
   }
 

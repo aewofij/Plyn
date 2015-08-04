@@ -89,6 +89,16 @@
                   icon="visibility"
                   on-tap="{{inspectSignal}}">
                 </core-icon-button>
+                <core-icon-button 
+                  id="addSignalNodeButton"
+                  src="../include/in.png"
+                  on-tap="{{wantsAddInSignalNode}}">
+                </core-icon-button>
+                <core-icon-button 
+                  id="addSignalNodeButton"
+                  src="../include/out.png"
+                  on-tap="{{wantsAddOutSignalNode}}">
+                </core-icon-button>
               </div>
             </template>
           </core-collapse>
@@ -141,6 +151,22 @@ require([ 'core/component-registry'
       this.fire('add-component', {
         construct: dtl.item.construct, 
         onObj: evt.target.templateInstance.model.obj.model
+      });
+    },
+
+    wantsAddInSignalNode: function (evt, dtl, sndr) {
+      var sig = evt.target.templateInstance.model.property.model;
+      this.fire('add-signal-node', {
+        signal: sig,
+        isInput: true
+      });
+    },
+
+    wantsAddOutSignalNode: function (evt, dtl, sndr) {
+      var sig = evt.target.templateInstance.model.property.model;
+      this.fire('add-signal-node', {
+        signal: sig,
+        isInput: false
       });
     },
 

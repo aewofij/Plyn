@@ -13,6 +13,7 @@ define([ 'core/signals'
         , 'modules/geometry'
         , 'modules/time'
         , 'modules/mouse'
+        , 'modules/osc-output'
         , 'util/vector2'
         , 'util/objutil'
         , 'physicsjs'
@@ -23,28 +24,42 @@ define([ 'core/signals'
         ], function ( Signal, Action, Arrow, Datatype, 
                       Data, Obj, Scene, ArrowNode, Behavior, 
                       StdSignals, StdArrows, Transform, Geometry, 
-                      Time, Mouse, Vector2, ObjUtil, Physics ) {
+                      Time, Mouse, OscOutput, Vector2, ObjUtil, Physics ) {
   var scene = new Scene.Scene();
   var obj = scene.addObject('Box object');
-  var circle = scene.addObject('Circle object');
+  var circleObj = scene.addObject('Circle object');
+  var inputsObj = scene.addObject('Inputs');
+  var outputsObj = scene.addObject('OSC');
+  // var circle = scene.addObject('Circle object');
 
-  var geom = new Geometry(obj);
-  var maus = new Mouse(obj);
+  var geom = new Geometry.Rect(obj);
   var xform = new Transform(obj);
-  var time = new Time(obj);
+
+  var geomCircle = new Geometry.Circle(circleObj);
+  var xformCircle = new Transform(circleObj);
+
+  var maus = new Mouse(inputsObj);
+  var time = new Time(inputsObj);
+
+  var oscOut1 = new OscOutput(outputsObj, 'x');
+  var oscOut2 = new OscOutput(outputsObj, 'y');
+  var oscOut3 = new OscOutput(outputsObj, 'wave');
+  var oscOut3 = new OscOutput(outputsObj, 'x_circle');
+  var oscOut3 = new OscOutput(outputsObj, 'y_circle');
+
 
   // ------- START SUPER SIMPLE BEHAVIOR ------- //
 
-  var superSimple = Behavior.Behavior('Super simple');
-  scene.addBehavior(superSimple);
+  // var superSimple = Behavior.Behavior('Super simple');
+  // scene.addBehavior(superSimple);
 
-  var ssMouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
-  var ssPositionOutput = ArrowNode.OutputNode(xform.signals.Transform.position);
+  // var ssMouseInput = ArrowNode.InputNode(maus.signals.Mouse.position);
+  // var ssPositionOutput = ArrowNode.OutputNode(xform.signals.Transform.position);
 
-  superSimple.addNode(ssMouseInput)
-             .addNode(ssPositionOutput);
+  // superSimple.addNode(ssMouseInput)
+  //            .addNode(ssPositionOutput);
 
-  superSimple.connect(ssMouseInput, { node: ssPositionOutput, inlet: 0 });
+  // superSimple.connect(ssMouseInput, { node: ssPositionOutput, inlet: 0 });
 
   // ------- START SAMPLE BEHAVIOR ------- //
 
@@ -278,6 +293,74 @@ define([ 'core/signals'
   // sr.connect(nudgeNode, { node: positionOutputSR, inlet: 0 });
 
   // ------- END SIMPLE RECURSIVE BEHAVIOR ------- //
+
+
+  // ------- START SANDBOX BEHAVIOR ------- //
+
+  var sandboxBeh = Behavior.Behavior('Sandbox');
+  scene.addBehavior(sandboxBeh);
+
+  var sb_boxPosition    = ArrowNode.InputNode(xform.signals.Transform.position, {name: 'box pos'});
+  var sb_circlePosition = ArrowNode.OutputNode(xformCircle.signals.Transform.position, {name: 'circle pos'});
+
+  sandboxBeh.addNode(sb_boxPosition)
+            .addNode(sb_circlePosition);
+  
+  // ------- END SANDBOX BEHAVIOR ------- //
+  
+  // ------- START SYMP BEHAVIOR ------- //
+
+  var sineMvmt = Behavior.Behavior('Sine movement');
+  scene.addBehavior(sineMvmt);
+
+  var mouseInput2 = ArrowNode.InputNode(maus.signals.Mouse.position, {name: 'mouse input'});
+  var timeInput = ArrowNode.InputNode(time.signals.Time.current, {name: 'time'});
+  var positionOutput2 = ArrowNode.OutputNode(xform.signals.Transform.position, {name: 'position output'});
+
+  var createSine = ArrowNode.ArrowNode(StdArrows.numberExpression()
+                                                .setParameter('expression', function (t, amp) {
+                                                  // return (amp - 500) * Math.sin(t / 100);
+                                                  var freqMod = 700;
+                                                  return (((t % (freqMod * 2)) > freqMod) ? (amp - 500) * ((t % freqMod) / freqMod)
+                                                                              : (amp - 500) - (amp - 500) * ((t % freqMod) / freqMod))
+                                                }), { name: 'create wave' });
+  var accessX  = ArrowNode.ArrowNode(StdArrows.fieldAccess().setParameter('field id', 'x'), { name: 'access x' });
+  var accessY  = ArrowNode.ArrowNode(StdArrows.fieldAccess().setParameter('field id', 'y'), { name: 'access y' });
+  var accessX2 = ArrowNode.ArrowNode(StdArrows.fieldAccess().setParameter('field id', 'x'), { name: 'access x' });
+  var accessY2 = ArrowNode.ArrowNode(StdArrows.fieldAccess().setParameter('field id', 'y'), { name: 'access y' });
+
+  var add = ArrowNode.ArrowNode(StdArrows.numberExpression()
+                                         .setParameter('expression', function (v1, v2) { return v1 + v2 }));
+  var buildVec = ArrowNode.ArrowNode(StdArrows.buildRecord().setParameter('record type', Vector2.type), { name: 'build vector' });
+
+  var oscOutNode1 = ArrowNode.OutputNode(oscOut1.signals.OscOutput.output, { name: 'osc output' });
+  var oscOutNode2 = ArrowNode.OutputNode(oscOut2.signals.OscOutput.output, { name: 'osc output' });
+  var oscOutNode3 = ArrowNode.OutputNode(oscOut3.signals.OscOutput.output, { name: 'osc output' });
+
+
+  sineMvmt.addNodes(mouseInput2, timeInput, positionOutput2, 
+                    createSine, accessX, accessY, accessX2, accessY2, add, 
+                    buildVec, oscOutNode1, oscOutNode2, oscOutNode3);
+
+  sineMvmt.connect(mouseInput2, { node: accessX, inlet: 0 });
+  sineMvmt.connect(mouseInput2, { node: accessY, inlet: 0 });
+  sineMvmt.connect(timeInput, { node: createSine, inlet: 0 });
+  sineMvmt.connect(accessY, { node: createSine, inlet: 1 });
+
+  sineMvmt.connect(accessX, { node: add, inlet: 0 });
+  sineMvmt.connect(createSine, { node: add, inlet: 1 });
+  sineMvmt.connect(add, { node: buildVec, inlet: 0 });
+  sineMvmt.connect(accessY, { node: buildVec, inlet: 1 });
+
+  sineMvmt.connect(buildVec, { node: positionOutput2, inlet: 0 });
+
+  sineMvmt.connect(buildVec, { node: accessX2, inlet: 0 });
+  sineMvmt.connect(buildVec, { node: accessY2, inlet: 0 });
+  // sineMvmt.connect(accessX2, { node: oscOutNode1, inlet: 0 });
+  // sineMvmt.connect(accessY2, { node: oscOutNode2, inlet: 0 });
+  sineMvmt.connect(createSine, { node: oscOutNode3, inlet: 0 });
+
+  // ------- END SYMP BEHAVIOR ------- //
 
   // come back to this...
   // var srl = JSON.stringify(Scene.serialize(scene));

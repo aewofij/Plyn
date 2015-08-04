@@ -18,8 +18,15 @@ define([ 'core/signals'
     return result;
   }
 
+  function constant (data) {
+    var result = Signal.Signal(data.type,
+                               data,
+                               'constant');
+  }
+
 
   return {
-    clock: clock
+    clock: clock,
+    constant: constant
   };
 });

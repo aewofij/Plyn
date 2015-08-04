@@ -25,6 +25,11 @@ require.config({
       name: 'pixi',
       location: 'libs/pixi/bin/',
       main: 'pixi.dev'
+    },
+    {
+      name: 'pubsub',
+      location: 'libs/pubsub-js/src/',
+      main: 'pubsub'
     }
   ],
   shim: {

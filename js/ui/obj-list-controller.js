@@ -2,8 +2,8 @@
 Controls a view into the set of all Plyn objects.
 */
 
-define([ 'underscore' ], 
-       function (_) {
+define([ 'underscore', 'pubsub' ], 
+       function (_, PubSub) {
 
   function ObjListController (theScene) {
     var self = this;
@@ -29,6 +29,10 @@ define([ 'underscore' ],
     addComponent: function (componentCons, onObj) {
       new componentCons(onObj);
       this.updateObjectList();
+    },
+
+    addSignalNode: function (signal, isInput) {
+      PubSub.publish('add-signal-node', { signal: signal, isInput: isInput });
     },
 
     updateObjectList: function () {

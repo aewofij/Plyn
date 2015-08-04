@@ -29,7 +29,8 @@
       <hierarchy-list id="hierarchy" 
         objects="{{controller.allObjects}}"
         on-add-component="{{addComponent}}"
-        on-inspect-signal="{{inspect}}">
+        on-inspect-signal="{{inspect}}"
+        on-add-signal-node="{{addSignalNode}}">
       </hierarchy-list>
       <signal-scope id="scope"></signal-scope>
     </div>
@@ -48,6 +49,10 @@
 
       addComponent: function (evt, dtl, sndr) {
         this.controller.addComponent(dtl.construct, dtl.onObj)
+      },
+
+      addSignalNode: function (evt, dtl, sndr) {
+        this.controller.addSignalNode(dtl.signal, dtl.isInput);
       },
 
       inspect: function (evt, dtl, sndr) {

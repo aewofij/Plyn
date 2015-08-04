@@ -2,8 +2,12 @@
 Provides a graph-based interface into a single behavior.
 */
 
-define([ 'underscore', 'core/signals', 'core/behavior/behavior' ], 
-       function (_, Signal, Behavior) {
+define([ 'underscore'
+       , 'core/signals'
+       , 'core/behavior/behavior'
+       , 'core/behavior/arrow-node'
+       , 'pubsub' ], 
+       function (_, Signal, Behavior, ArrowNode, PubSub) {
 
   function BehaviorPanelController (theScene) {
     if (!(this instanceof BehaviorPanelController)) 
@@ -11,6 +15,15 @@ define([ 'underscore', 'core/signals', 'core/behavior/behavior' ],
 
     this.scene = theScene;
     this.activeBehavior = _.values(this.scene.behaviors)[0];
+
+    var self = this;
+    PubSub.subscribe('add-signal-node', function (msg, data) {
+      if (data.isInput) {
+        self.addNode(ArrowNode.InputNode(data.signal), { x: 10, y: 10});
+      } else {
+        self.addNode(ArrowNode.OutputNode(data.signal), { x: 10, y: 10});
+      }
+    });
   }
 
   BehaviorPanelController.prototype = {
@@ -78,6 +91,7 @@ define([ 'underscore', 'core/signals', 'core/behavior/behavior' ],
 
     // -- Modification -- //
 
+    // atPosition: { x: <num>, y: <num> }
     addNode: function (node, atPosition) {
       this.viewData[node.id] = new NodeViewData(this, node);
       this.viewData[node.id].position = atPosition;
@@ -155,6 +169,24 @@ define([ 'underscore', 'core/signals', 'core/behavior/behavior' ],
       delete this.selection.nodes[nodeId];
     },
 
+    // -- View -- //
+
+    switchToBehavior: function (newBeh) {
+      var self = this;
+
+      var oldBeh = this.activeBehavior;
+
+      _.keys(oldBeh.nodes).forEach(function (nodeId) {
+        var nodeViewData = self.getNode(nodeId).view;
+        _.values(nodeViewData.cableShapes).forEach(function (cableShape) {
+          cableShape.unsubscribe();
+        });
+        nodeViewData.cableShapes = [];
+      });
+
+      this.activeBehavior = newBeh;
+    },
+
 
     // ---------- PRIVATE ---------- //
 
@@ -220,13 +252,14 @@ define([ 'underscore', 'core/signals', 'core/behavior/behavior' ],
     }, 
 
     // maps edge ID to FabricJS shape for outgoing cables
-    cableShapes: [{
-      // FabricJS object for this cable
-      fabricObj: null, 
+    cableShapes: {},
+    // {
+    //   // FabricJS object for this cable
+    //   fabricObj: null, 
 
-      // call this function to unsubscribe from cable updaters
-      unsubscribe: null
-    }],
+    //   // call this function to unsubscribe from cable updaters
+    //   unsubscribe: null
+    // }
 
     get isSelected () {
       return this.controller.isNodeInSelection(this.id);

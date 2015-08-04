@@ -34,13 +34,13 @@
       }
 
       behavior-panel {
-        height: 60%;
+        height: 75%;
       }
 
       scene-panel {
         position: relative;
         background-color: white;
-        cursor: none;
+        /*cursor: none;*/
       }
     </style>
 
@@ -81,6 +81,19 @@
             this.$.listPanel.controller = new ObjListController(run.scene);
             this.$.behaviorPanel.controller = new BehaviorPanelController(run.scene);
             this.$.scenePanel.scene = run.scene;
+
+            var toggle = false;
+            var self = this;
+            window.addEventListener('keydown', function (evt) {
+              if (evt.keyCode == 192) {
+                toggle = !toggle;
+                if (toggle) {
+                  self.$.behaviorPanel.style.display = 'none';
+                } else {
+                  self.$.behaviorPanel.style.display = 'block';
+                }
+              }
+            });
           }
         });
       });

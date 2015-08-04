@@ -5,9 +5,10 @@ Keeps a database of nodes that can be instantiated by the user.
 define([ 'core/datatypes'
        , 'core/data'
        , 'util/vector2'
+       , 'core/arrow'
        , 'core/behavior/arrow-node'
        , 'arrows/std-arrows' ], 
-       function (Type, Data, Vector2, ArrowNode, StdArrows) {
+       function (Type, Data, Vector2, Arrow, ArrowNode, StdArrows) {
 
   var ParameterType = {
     signal: 'signal',
@@ -41,9 +42,74 @@ define([ 'core/datatypes'
                                                                           }));
         }
       }
+    , { kind: 'translate'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.vectorExpression()
+                                              .setParameter('expression', function (v1,v2) {
+                                                                            return {
+                                                                              x: v1.x + v2.x,
+                                                                              y: v1.y + v2.y,
+                                                                            };
+                                                                          }), { name: 'translate' });
+        }
+      }
+    , { kind: 'scale vec'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.scaleVec(), { name: 'scale vector' });
+        }
+      }
+    , { kind: 'diagonal'
+      , construct: function () {
+          return ArrowNode.ArrowNode(Arrow.EventArrow('diagonal',
+                                    {},
+                                    [Type.Number], 
+                                    Vector2.type,
+                                    function (scale) {
+                                      return Vector2.Vector2 (Data.Number (scale.val)) 
+                                                             (Data.Number (scale.val))
+                                    }), { name: 'diagonal' });
+        }
+      }
+    , { kind: 'unit vec'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.constant(Vector2.Vector2 (Data.Number(1)) 
+                                                                        (Data.Number(1))), 
+                                     { name: 'unit vector' });
+        }
+      }
+    , { kind: 'access x'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.fieldAccess()
+                                              .setParameter('field id', 'x'), 
+                                     { name: 'access x' });
+        }
+      }
+    , { kind: 'access y'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.fieldAccess()
+                                              .setParameter('field id', 'y'), 
+                                     { name: 'access y' });
+        }
+      }
     , { kind: 'filter repeats'
       , construct: function () {
           return ArrowNode.ArrowNode(StdArrows.filterRepeats);
+        }
+      }
+    , { kind: 'flip horizontal'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.vectorExpression()
+                                              .setParameter('expression', function (vec) {
+                                                return {
+                                                  x: -vec.x + 1300,
+                                                  y: vec.y
+                                                };
+                                              }), { name: 'flip horizontal' });
+        }
+      }
+    , { kind: 'distance'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.distance(), { name: 'distance' });
         }
       }
     , { kind: 'match number'

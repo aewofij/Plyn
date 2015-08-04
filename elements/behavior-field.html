@@ -183,6 +183,7 @@ require([ 'core/signals'
               viewData.cableShapes[outEdge.id]['unsubscribe'] = function () {
                 Object.unobserve(viewData.position, positionCable);
                 Object.unobserve(toViewData.position, positionCable);
+                self.fabric.remove(viewData.cableShapes[outEdge.id].fabricObj);
               };
 
               self.fabric.add(viewData.cableShapes[outEdge.id].fabricObj);

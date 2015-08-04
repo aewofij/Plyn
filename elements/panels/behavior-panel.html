@@ -76,6 +76,7 @@
           controllerChanged: function () {
             this.$.behaviorField.controller = this.controller;
             this.behaviorList = _.values(this.controller.scene.behaviors);
+            console.log(this.behaviorList, this.controller.scene);
           },
 
 
@@ -90,7 +91,8 @@
 
           tabSwitched: function (evt, dtl, sndr) {
             if (dtl.isSelected) {
-              this.controller.activeBehavior = this.behaviorList[sndr.selected];
+              // this.controller.activeBehavior = this.behaviorList[sndr.selected];
+              this.controller.switchToBehavior(this.behaviorList[sndr.selected]);
             }
           },
 

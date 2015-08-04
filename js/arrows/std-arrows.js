@@ -112,27 +112,95 @@ define([ 'core/arrow'
                             });
   }
 
-  function differentiateVec () {
-    var setupFn = function (node) {
-      // signal |> sample |> delay |>> difference
-      var clock = StdSignals.clock(node.arrow.parameters.timeFrame.value);
-      sampleOn.plug(clock, node.signal);
-
-
-      node.signal
-    };
-    var teardownFn = function () {
-      // TODO
-    };
-
-    return Arrow.SignalArrow('differentiateVec',
-                            { timeFrame: { type: Arrow.ParameterType.integer, value: 2 } },
-                            [ Vector2.type ],
-                            Vector2.type,
+  function constant (data) {
+    var unsub = function () {};
+    return Arrow.SignalArrow('constant',
+                            // { timeFrame: { type: Arrow.ParameterType.integer, value: 2 } },
+                            {},
+                            [],
+                            data.type,
                             [[]],
-                            setupFn,
-                            teardownFn);
+                            function (node) {
+                              // var unsub1 = Signal.plug();
+                              var arrowInfo = sampleOn.plug(Signal.constant(data), StdSignals.clock(1));
+                              var unsubOut  = Signal.reflect(node.signal, arrowInfo.signal);
+                              Signal.subscribe(StdSignals.clock(1), function () {
+                                console.log('dd');
+                              });
+
+                              unsub = function () {
+                                arrowInfo.unplug();
+                                unsubOut();
+                              }
+                            },
+                            function () {
+                              unsub();
+                            });
   }
+
+  function distance () {
+    return Arrow.EventArrow('distance',
+                            {},
+                            [Vector2.type, Vector2.type], 
+                            Type.Number,
+                            function (v1, v2) {
+                              var sqDist = ((v2.val.x.val - v1.val.x.val) * (v2.val.x.val - v1.val.x.val)) 
+                                         + ((v2.val.y.val - v1.val.y.val) * (v2.val.y.val - v1.val.y.val))
+                              return Data.Number (Math.sqrt(sqDist))
+                            });
+  }
+
+  function scaleVec () {
+    return Arrow.EventArrow('scaleVec',
+                            {},
+                            [Vector2.type, Type.Number], 
+                            Vector2.type,
+                            function (v, scale) {
+                              return Vector2.Vector2 (Data.Number (v.val.x.val * scale.val)) 
+                                                     (Data.Number (v.val.y.val * scale.val))
+                            });
+  }
+
+
+  // function differentiateVec () {
+  //   var setupFn = function (node) {
+  //     // signal |> sample |> delay |>> difference
+  //     var clock = StdSignals.clock(node.arrow.parameters.timeFrame.value);
+  //     sampleOn.plug(clock, node.signal);
+
+  //     node.signal
+  //   };
+  //   var teardownFn = function () {
+  //     // TODO
+  //   };
+
+  //   return Arrow.SignalArrow('differentiateVec',
+  //                           { timeFrame: { type: Arrow.ParameterType.integer, value: 2 } },
+  //                           [ Vector2.type ],
+  //                           Vector2.type,
+  //                           [[]],
+  //                           setupFn,
+  //                           teardownFn);
+  // }
+
+  /* Reduces values received over the course of a set timeframe into a single value, pushed at the
+   *   end of that time frame.
+   */
+  // function foldFrame () {
+  //   var buffer = [];
+
+  //   return Arrow.EventArrow('foldFrame',
+  //                           { transitionFunction: { type: Arrow.ParameterType.script, value: null }
+  //                           , period: { type: Arrow.ParameterType.number, value: -1,
+  //                                       changed: function () {
+  //                                         // TODO: 
+  //                                       } } },
+  //                           [],
+  //                           Type.Variable('a'),
+  //                           function (v) {
+  //                             // TODO: setup initial callback
+  //                           });
+  // }
 
   /* Merges two Signals together - whenever either input signal
    *   updates, the output signal will update.
@@ -162,7 +230,7 @@ define([ 'core/arrow'
    * returnType : Type (`b`, above)
    * initialState : b
    */
-  var foldp = function () {
+  function foldp () {
     var result = Arrow.EventArrow('foldp',
                                   { initialState: {type: Arrow.ParameterType.script, value: null,
                                                    changed: function (oldValue, newValue, arrow) {
@@ -279,8 +347,11 @@ define([ 'core/arrow'
 
   return {
     outputArrow: outputArrow,
+    constant: constant,
     numberExpression: numberExpression,
     vectorExpression: vectorExpression,
+    distance: distance,
+    scaleVec: scaleVec,
     merge: merge,
     foldp: foldp,
     pushTo: pushTo,
