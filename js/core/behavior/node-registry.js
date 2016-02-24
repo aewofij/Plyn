@@ -128,6 +128,12 @@ define([ 'core/datatypes'
                                                                             (Data.Number(0))));
         }
       }
+    , { kind: 'build vector'
+      , construct: function () {
+          return ArrowNode.ArrowNode(StdArrows.buildRecord()
+                                              .setParameter('record type', Vector2.type))
+        }
+      }
     ]
 
   var kindToNode = nodes.reduce(function (acc, elm) {
